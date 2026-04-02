@@ -366,6 +366,22 @@
     display: none;
     z-index: 20;
   }
+
+  #error-banner {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,60,60,0.9);
+    color: #fff;
+    font-family: monospace;
+    font-size: 22px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    display: none;
+    z-index: 30;
+    text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -434,6 +450,7 @@
 
 <div id="zoom-bar"><div id="zoom-fill"></div></div>
 <div id="pause-badge">● PAUSED</div>
+<div id="error-banner" class="hud-btn"></div>
 
 <script>
 const video = document.getElementById('video');
@@ -447,6 +464,7 @@ const cameraSelect = document.getElementById('camera-select');
 const helpWrap = document.getElementById('help-wrap');
 const helpToggle = document.getElementById('help-toggle');
 const pauseBadge = document.getElementById('pause-badge');
+const errorBanner = document.getElementById('error-banner');
 const btnPause = document.getElementById('btn-pause');
 const btnFlipH = document.getElementById('btn-flip-h');
 const btnFlipV = document.getElementById('btn-flip-v');
@@ -478,18 +496,40 @@ const MAX_ZOOM = 8.0;
 const STORAGE_CAMERA_KEY = 'doccam.selectedCameraId';
 const PRESET_SLOTS = [1,2,3,4,5,6,7,8,9];
 
+const PAN_STEP = 30;
+const WHEEL_SENSITIVITY = 0.003;
+const PAN_LIMIT_MULTIPLIER = 200;
+const ROTATION_RESET_DELAY_MS = 90;
+const HUD_TIMEOUT_MS = 2000;
+const FLOAT_EPSILON = 0.001;
+const ZOOM_ACTIVE_THRESHOLD = 0.05;
+const ERROR_DISPLAY_MS = 5000;
+
+function showError(message) {
+  errorBanner.textContent = message;
+  errorBanner.style.display = 'block';
+  setTimeout(() => {
+    errorBanner.style.display = 'none';
+  }, ERROR_DISPLAY_MS);
+}
+
 function isOverlayPinned() {
   return body.classList.contains('help-open') || body.classList.contains('zoom-open');
 }
 
 function getSavedCameraId() {
-  try { return localStorage.getItem(STORAGE_CAMERA_KEY); } catch { return null; }
+  try { return localStorage.getItem(STORAGE_CAMERA_KEY); } catch (e) {
+    console.warn('localStorage unavailable:', e.message);
+    return null;
+  }
 }
 
 function saveCameraId(deviceId) {
   try {
     if (deviceId) localStorage.setItem(STORAGE_CAMERA_KEY, deviceId);
-  } catch {}
+  } catch (e) {
+    console.warn('Failed to save camera selection:', e.message);
+  }
 }
 
 function getDefaultPreset() {
@@ -514,7 +554,9 @@ function loadPresets() {
     try {
       const raw = localStorage.getItem(presetKey(slot));
       if (raw) presets[String(slot)] = JSON.parse(raw);
-    } catch {}
+    } catch (e) {
+      console.warn(`Failed to load preset ${slot}:`, e.message);
+    }
   }
   return presets;
 }
@@ -526,7 +568,9 @@ function savePresets(presets) {
     try {
       if (val) localStorage.setItem(key, JSON.stringify(val));
       else localStorage.removeItem(key);
-    } catch {}
+    } catch (e) {
+      console.warn(`Failed to save preset ${slot}:`, e.message);
+    }
   }
 }
 
@@ -548,9 +592,9 @@ function statesMatch(a, b) {
   const x = normalizeState(a);
   const y = normalizeState(b);
   return (
-    Math.abs(x.zoom - y.zoom) < 0.001 &&
-    Math.abs(x.panX - y.panX) < 0.001 &&
-    Math.abs(x.panY - y.panY) < 0.001 &&
+    Math.abs(x.zoom - y.zoom) < FLOAT_EPSILON &&
+    Math.abs(x.panX - y.panX) < FLOAT_EPSILON &&
+    Math.abs(x.panY - y.panY) < FLOAT_EPSILON &&
     x.flipH === y.flipH &&
     x.flipV === y.flipV &&
     (x.rotation % 360) === (y.rotation % 360) &&
@@ -563,9 +607,9 @@ function presetsMatch(a, b) {
   const x = normalizeState(a);
   const y = normalizeState(b);
   return (
-    Math.abs(x.zoom - y.zoom) < 0.001 &&
-    Math.abs(x.panX - y.panX) < 0.001 &&
-    Math.abs(x.panY - y.panY) < 0.001 &&
+    Math.abs(x.zoom - y.zoom) < FLOAT_EPSILON &&
+    Math.abs(x.panX - y.panX) < FLOAT_EPSILON &&
+    Math.abs(x.panY - y.panY) < FLOAT_EPSILON &&
     x.flipH === y.flipH &&
     x.flipV === y.flipV &&
     (x.rotation % 360) === (y.rotation % 360) &&
@@ -711,7 +755,21 @@ async function startCamera(deviceId) {
     audio: false
   };
 
-  const stream = await navigator.mediaDevices.getUserMedia(constraints);
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+  } catch (e) {
+    if (e.name === 'NotAllowedError') {
+      showError('Camera access denied. Please allow camera permission and refresh.');
+    } else if (e.name === 'NotFoundError') {
+      showError('No camera found. Please connect a camera and refresh.');
+    } else if (e.name === 'NotReadableError') {
+      showError('Camera in use by another app. Close other apps using the camera.');
+    } else {
+      showError(`Camera error: ${e.message || e.name}`);
+    }
+    return;
+  }
   currentStream = stream;
 
   const track = stream.getVideoTracks()[0];
@@ -745,7 +803,7 @@ function updateButtonLabels() {
 
   zoomOptions.forEach(option => {
     const value = Number(option.dataset.zoom);
-    option.classList.toggle('active', Math.abs(zoom - value) < 0.05);
+    option.classList.toggle('active', Math.abs(zoom - value) < ZOOM_ACTIVE_THRESHOLD);
   });
 }
 
@@ -762,7 +820,7 @@ function applyTransform() {
 }
 
 function clampPan() {
-  const limit = (zoom - 1) * 200;
+  const limit = (zoom - 1) * PAN_LIMIT_MULTIPLIER;
   panX = Math.min(limit, Math.max(-limit, panX));
   panY = Math.min(limit, Math.max(-limit, panY));
 }
@@ -809,7 +867,7 @@ function showHUD() {
     zoomBar.classList.remove('visible');
     body.classList.remove('cursor-visible');
     if (!dragging) body.classList.remove('dragging');
-  }, 2000);
+  }, HUD_TIMEOUT_MS);
 }
 
 function closeOverlay(kind) {
@@ -881,7 +939,7 @@ function cycleRotation() {
       normalizeRotationImmediate();
       rotationResetTimer = null;
       updatePresetState();
-    }, 90);
+    }, ROTATION_RESET_DELAY_MS);
   }
 }
 
@@ -981,7 +1039,7 @@ async function savePreset(slot) {
 
 window.addEventListener('wheel', e => {
   e.preventDefault();
-  changeZoom(-e.deltaY * 0.003);
+  changeZoom(-e.deltaY * WHEEL_SENSITIVITY);
 }, { passive: false });
 
 window.addEventListener('mousemove', e => {
@@ -1002,6 +1060,10 @@ window.addEventListener('touchmove', () => showHUD(), { passive: true });
 window.addEventListener('touchend', () => showHUD(), { passive: true });
 window.addEventListener('fullscreenchange', () => {
   btnFullscreen.classList.toggle('active', !!document.fullscreenElement);
+});
+
+video.addEventListener('error', () => {
+  showError('Video stream error. Please try a different camera or refresh.');
 });
 
 video.addEventListener('touchstart', e => {
@@ -1095,10 +1157,10 @@ window.addEventListener('keydown', async e => {
     case 'R': cycleRotation(); break;
     case 'f':
     case 'F': toggleFullscreen(); break;
-    case 'ArrowUp': panY += 30; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
-    case 'ArrowDown': panY -= 30; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
-    case 'ArrowLeft': panX += 30; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
-    case 'ArrowRight': panX -= 30; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
+    case 'ArrowUp': panY += PAN_STEP; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
+    case 'ArrowDown': panY -= PAN_STEP; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
+    case 'ArrowLeft': panX += PAN_STEP; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
+    case 'ArrowRight': panX -= PAN_STEP; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
     case 'Delete':
       if (activePresetSlot !== null) {
         deletePreset(activePresetSlot);
