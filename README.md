@@ -10,9 +10,30 @@ Simple webcam based document viewer with minimal UI to have a frictionless digit
 - **Presets** — Save/load view states (keys 1-9, Ctrl+1-9 to save)
 - **Fullscreen** — Press F to toggle
 - **Pause** — Freeze the feed anytime
+- **Keyboard shortcuts** — To control the app easily
 
 ### Screenshot
+
 ![Screenshot](screenshot.jpg)
+
+### Shortcuts
+
+| Key(s) | Action |
+|--------|--------|
+| Mouse / Touch | zoom & pan |
+| `+` / `-` | zoom in / out |
+| `↑` `↓` `←` `→` | pan |
+| `F` | toggle fullscreen |
+| `P` | pause / resume |
+| `H` | horizontal flip |
+| `V` | vertical flip |
+| `R` | rotate 90° |
+| `0` | reset all settings |
+| `1-9` | load preset |
+| `Ctrl+1-9` | save preset |
+| `Delete` | delete active preset |
+
+---
 
 ## Technical Details
 
