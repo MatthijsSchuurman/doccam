@@ -559,6 +559,20 @@ function statesMatch(a, b) {
   );
 }
 
+function presetsMatch(a, b) {
+  const x = normalizeState(a);
+  const y = normalizeState(b);
+  return (
+    Math.abs(x.zoom - y.zoom) < 0.001 &&
+    Math.abs(x.panX - y.panX) < 0.001 &&
+    Math.abs(x.panY - y.panY) < 0.001 &&
+    x.flipH === y.flipH &&
+    x.flipV === y.flipV &&
+    (x.rotation % 360) === (y.rotation % 360) &&
+    x.paused === y.paused
+  );
+}
+
 function getState() {
   return {
     zoom,
@@ -582,6 +596,22 @@ async function setFullscreenState(shouldBeFullscreen) {
   }
 }
 
+function setPaused(shouldPause) {
+  if (shouldPause) {
+    video.pause();
+    btnPause.classList.add('active');
+    pauseBadge.style.display = 'block';
+  } else {
+    try { video.play(); } catch {}
+    btnPause.classList.remove('active');
+    pauseBadge.style.display = 'none';
+  }
+  paused = shouldPause;
+  updateButtonLabels();
+  updatePresetState();
+  showHUD();
+}
+
 function applyVisualState(state) {
   const next = normalizeState(state);
 
@@ -596,19 +626,10 @@ function applyVisualState(state) {
   flipH = next.flipH;
   flipV = next.flipV;
   rotation = next.rotation;
-  paused = next.paused;
   clampPan();
   applyTransform();
 
-  if (paused) {
-    video.pause();
-    btnPause.classList.add('active');
-    pauseBadge.style.display = 'block';
-  } else {
-    try { video.play(); } catch {}
-    btnPause.classList.remove('active');
-    pauseBadge.style.display = 'none';
-  }
+  setPaused(next.paused);
 }
 
 async function applyState(state) {
@@ -816,19 +837,7 @@ function openOverlay(kind) {
 }
 
 function togglePause() {
-  paused = !paused;
-  if (paused) {
-    video.pause();
-    btnPause.classList.add('active');
-    pauseBadge.style.display = 'block';
-  } else {
-    video.play();
-    btnPause.classList.remove('active');
-    pauseBadge.style.display = 'none';
-  }
-  updateButtonLabels();
-  updatePresetState();
-  showHUD();
+  setPaused(!paused);
 }
 
 function toggleFlipH() {
@@ -1148,7 +1157,6 @@ if (navigator.mediaDevices?.addEventListener) {
 
 (async function init() {
   const existing = loadPresets();
-  let pendingPreset = null;
 
   if (!PRESET_SLOTS.some(slot => !!existing[String(slot)])) {
     const def = getDefaultPreset();
@@ -1168,16 +1176,10 @@ if (navigator.mediaDevices?.addEventListener) {
 
   await startCamera(initialDeviceId);
 
-  if (pendingPreset) {
-    await applyVisualState(pendingPreset);
-    await setFullscreenState(pendingPreset.fullscreen);
-    renderPresetBar();
-  } else {
-    const loaded = loadPresets();
-    const matchKey = Object.keys(loaded).find(k => statesMatch(getState(), loaded[k]));
-    activePresetSlot = matchKey ? Number(matchKey) : null;
-    renderPresetBar();
-  }
+  const loaded = loadPresets();
+  const matchKey = Object.keys(loaded).find(k => presetsMatch(getState(), loaded[k]));
+  activePresetSlot = matchKey ? Number(matchKey) : null;
+  renderPresetBar();
 })();
 </script>
 </body>
