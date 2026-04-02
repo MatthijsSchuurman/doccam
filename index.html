@@ -466,6 +466,7 @@ let touchMode = null;
 let touchStartDistance = 0;
 let touchStartZoom = 1;
 let activePresetSlot = null;
+let loadingPresetSlot = null;
 let rotationResetTimer = null;
 
 const MIN_ZOOM = 1.0;
@@ -622,6 +623,9 @@ async function applyState(state) {
 }
 
 function updatePresetState() {
+  if (loadingPresetSlot === null) {
+    activePresetSlot = null;
+  }
   renderPresetBar();
 }
 
@@ -877,7 +881,6 @@ function toggleFullscreen() {
   }
   btnFullscreen.classList.toggle('active', !!document.fullscreenElement);
   showHUD();
-  setTimeout(updatePresetState, 0);
 }
 
 function beginDrag(x, y) {
@@ -934,8 +937,10 @@ function renderPresetBar() {
     btn.title = `Preset ${slot}`;
     btn.addEventListener('click', async () => {
       showHUD();
+      loadingPresetSlot = slot;
       await applyState(preset);
       activePresetSlot = slot;
+      loadingPresetSlot = null;
       renderPresetBar();
     });
     wrap.appendChild(btn);
@@ -985,7 +990,6 @@ window.addEventListener('touchmove', () => showHUD(), { passive: true });
 window.addEventListener('touchend', () => showHUD(), { passive: true });
 window.addEventListener('fullscreenchange', () => {
   btnFullscreen.classList.toggle('active', !!document.fullscreenElement);
-  updatePresetState();
 });
 
 video.addEventListener('touchstart', e => {
@@ -1055,9 +1059,11 @@ window.addEventListener('keydown', async e => {
     const preset = presets[e.key];
     if (preset) {
       e.preventDefault();
-      activePresetSlot = Number(e.key);
-      renderPresetBar();
+      loadingPresetSlot = Number(e.key);
       await applyState(preset);
+      activePresetSlot = Number(e.key);
+      loadingPresetSlot = null;
+      renderPresetBar();
     }
     return;
   }
@@ -1145,7 +1151,6 @@ if (navigator.mediaDevices?.addEventListener) {
     const def = getDefaultPreset();
     const presets = { '1': def };
     savePresets(presets);
-    pendingPreset = def;
   }
 
   renderPresetBar();
