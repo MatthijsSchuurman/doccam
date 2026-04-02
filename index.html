@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocCam</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    font-family: monospace;
+    cursor: none;
+    touch-action: none;
+  }
+
+  body.cursor-visible,
+  body.cursor-visible * {
+    cursor: default !important;
+  }
+
+  body.cursor-visible.dragging,
+  body.cursor-visible.dragging * {
+    cursor: grabbing !important;
+  }
+
+  #video {
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+    display: block;
+    transform-origin: center center;
+    transition: transform 0.08s ease-out;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  #hud {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 10;
+  }
+
+  #hud.visible,
+  body.help-open #hud,
+  body.zoom-open #hud {
+    opacity: 1;
+  }
+
+  #hud .top-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    padding: 12px 16px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: flex-start;
+    gap: 12px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+    pointer-events: none;
+  }
+
+  #hud .top-left,
+  #hud .top-center,
+  #hud .top-right,
+  #hud .bottom-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #hud .top-center {
+    justify-content: center;
+    pointer-events: all;
+  }
+
+  #hud .top-right {
+    justify-content: flex-end;
+  }
+
+  #hud .bottom-bar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 12px 16px;
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%);
+    pointer-events: all;
+  }
+
+  #camera-select,
+  .hud-btn,
+  .zoom-trigger,
+  .preset-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #fff;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 5px 9px;
+    border-radius: 4px;
+    outline: none;
+    pointer-events: all;
+  }
+
+  #camera-select {
+    cursor: pointer;
+    max-width: min(56vw, 460px);
+  }
+
+  #camera-select:hover,
+  .hud-btn:hover,
+  .help-toggle:hover,
+  .zoom-trigger:hover,
+  .preset-btn:hover,
+  .zoom-option:hover {
+    background: rgba(255,255,255,0.15);
+  }
+
+  #camera-select option { background: #111; color: #fff; }
+
+  .hud-btn,
+  .zoom-trigger,
+  .preset-btn {
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: background 0.15s;
+  }
+
+  .hud-btn.active {
+    background: rgba(0,200,80,0.18);
+    border-color: rgba(0,200,80,0.35);
+  }
+
+  #btn-fullscreen.active {
+    background: rgba(0,200,80,0.18);
+    border-color: rgba(0,200,80,0.35);
+  }
+
+  #btn-flip-h.active,
+  #btn-flip-v.active {
+    background: rgba(0,200,80,0.18);
+    border-color: rgba(0,200,80,0.35);
+  }
+
+  #btn-pause.active {
+    background: rgba(255, 60, 60, 0.3);
+    border-color: rgba(255,60,60,0.5);
+  }
+
+  #help-wrap,
+  #zoom-wrap {
+    position: relative;
+    pointer-events: all;
+  }
+
+  .help-toggle {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-family: monospace;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  .help-panel {
+    position: absolute;
+    top: 18px;
+    right: 0;
+    width: min(420px, calc(100vw - 32px));
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(0,0,0,0.9);
+    color: rgba(255,255,255,0.88);
+    font-size: 11px;
+    line-height: 1.45;
+    display: none;
+  }
+
+  #help-wrap.open .help-panel,
+  #help-wrap:hover .help-panel,
+  #help-wrap:focus-within .help-panel {
+    display: block;
+  }
+
+  .help-title,
+  .zoom-title {
+    color: #fff;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+
+  .help-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 4px;
+  }
+
+  .help-group-row td {
+    padding: 14px 0 6px 0;
+    color: #fff;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-size: 10px;
+  }
+
+  .help-table td {
+    padding: 3px 0;
+    vertical-align: top;
+  }
+
+  .help-key {
+    width: 116px;
+    padding-right: 12px !important;
+    color: #fff;
+    white-space: nowrap;
+  }
+
+  .help-desc {
+    color: rgba(255,255,255,0.82);
+  }
+
+  .help-panel kbd {
+    display: inline-block;
+    min-width: 18px;
+    padding: 1px 5px;
+    margin-right: 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font: inherit;
+    text-align: center;
+  }
+
+  .zoom-trigger {
+    min-width: 58px;
+    text-align: left;
+  }
+
+  .zoom-panel {
+    position: absolute;
+    bottom: 34px;
+    left: 0;
+    min-width: 90px;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(0,0,0,0.9);
+    display: none;
+  }
+
+  #zoom-wrap.open .zoom-panel,
+  #zoom-wrap:hover .zoom-panel,
+  #zoom-wrap:focus-within .zoom-panel {
+    display: block;
+  }
+
+  .zoom-option {
+    width: 100%;
+    text-align: left;
+    padding: 5px 7px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: #fff;
+    font-family: monospace;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .zoom-option.active {
+    background: rgba(255,255,255,0.12);
+  }
+
+  #preset-bar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .preset-slot {
+    pointer-events: all;
+  }
+
+  .preset-btn {
+    min-width: 32px;
+    text-align: center;
+    padding: 5px 11px;
+  }
+
+  .preset-slot.inactive .preset-btn {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.15);
+    color: #fff;
+  }
+
+  .preset-slot.active .preset-btn {
+    background: rgba(0,200,80,0.25);
+    border-color: rgba(0,200,80,0.5);
+    color: #fff;
+  }
+
+  #zoom-bar {
+    position: fixed;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 120px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    z-index: 11;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  #zoom-bar.visible,
+  body.help-open #zoom-bar,
+  body.zoom-open #zoom-bar {
+    opacity: 1;
+  }
+
+  #zoom-fill {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.6);
+    transition: height 0.08s;
+  }
+
+  #pause-badge {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    background: rgba(255,40,40,0.8);
+    color: #fff;
+    font-family: monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    padding: 3px 8px;
+    border-radius: 3px;
+    display: none;
+    z-index: 20;
+  }
+</style>
+</head>
+<body>
+
+<video id="video" autoplay playsinline muted></video>
+
+<div id="hud">
+  <div class="top-bar">
+    <div class="top-left">
+      <select id="camera-select" title="Camera"></select>
+    </div>
+    <div class="top-center">
+      <div id="preset-bar"></div>
+    </div>
+    <div class="top-right">
+      <div id="help-wrap">
+        <button id="help-toggle" class="help-toggle" title="Help">?</button>
+        <div class="help-panel">
+          <div class="help-title">Help</div>
+          <table class="help-table">
+            <tr class="help-group-row"><td colspan="2">Zoom</td></tr>
+            <tr><td class="help-key">Mouse</td><td class="help-desc">zoom, pan</td></tr>
+            <tr><td class="help-key">Touch</td><td class="help-desc">zoom &amp; pan</td></tr>
+            <tr><td class="help-key"><kbd>+</kbd> <kbd>-</kbd></td><td class="help-desc">zoom in / out</td></tr>
+            <tr><td class="help-key"><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></td><td class="help-desc">pan</td></tr>
+
+            <tr class="help-group-row"><td colspan="2">Settings</td></tr>
+            <tr><td class="help-key"><kbd>F</kbd></td><td class="help-desc">toggle fullscreen</td></tr>
+            <tr><td class="help-key"><kbd>P</kbd></td><td class="help-desc">pause / resume</td></tr>
+            <tr><td class="help-key"><kbd>H</kbd></td><td class="help-desc">horizontal flip</td></tr>
+            <tr><td class="help-key"><kbd>V</kbd></td><td class="help-desc">vertical flip</td></tr>
+            <tr><td class="help-key"><kbd>R</kbd></td><td class="help-desc">rotate 90°</td></tr>
+            <tr><td class="help-key"><kbd>0</kbd></td><td class="help-desc">reset all settings</td></tr>
+
+            <tr class="help-group-row"><td colspan="2">Presets</td></tr>
+            <tr><td class="help-key"><kbd>1-9</kbd></td><td class="help-desc">load preset</td></tr>
+            <tr><td class="help-key"><kbd>Ctrl+1-9</kbd></td><td class="help-desc">save preset</td></tr>
+            <tr><td class="help-key"><kbd>Delete</kbd></td><td class="help-desc">delete active preset</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <div id="zoom-wrap">
+      <button id="zoom-display" class="zoom-trigger" title="Zoom presets">1.0×</button>
+      <div class="zoom-panel">
+        <div class="zoom-title">Zoom</div>
+        <button class="zoom-option" data-zoom="8">8×</button>
+        <button class="zoom-option" data-zoom="4">4×</button>
+        <button class="zoom-option" data-zoom="2">2×</button>
+        <button class="zoom-option" data-zoom="1">1×</button>
+      </div>
+    </div>
+
+    <div class="bottom-actions">
+      <button id="btn-flip-h" class="hud-btn" title="Horizontal flip (H)">Horizontal: normal</button>
+      <button id="btn-flip-v" class="hud-btn" title="Vertical flip (V)">Vertical: normal</button>
+      <button id="btn-rotate" class="hud-btn" title="Rotate (R)">Rotate: 0°</button>
+      <button id="btn-pause" class="hud-btn" title="Pause / resume (P)">Pause</button>
+      <button id="btn-fullscreen" class="hud-btn" title="Fullscreen (F), exit with Esc">Fullscreen</button>
+    </div>
+  </div>
+</div>
+
+<div id="zoom-bar"><div id="zoom-fill"></div></div>
+<div id="pause-badge">● PAUSED</div>
+
+<script>
+const video = document.getElementById('video');
+const body = document.body;
+const hud = document.getElementById('hud');
+const zoomBar = document.getElementById('zoom-bar');
+const zoomFill = document.getElementById('zoom-fill');
+const zoomDisplay = document.getElementById('zoom-display');
+const zoomWrap = document.getElementById('zoom-wrap');
+const cameraSelect = document.getElementById('camera-select');
+const helpWrap = document.getElementById('help-wrap');
+const helpToggle = document.getElementById('help-toggle');
+const pauseBadge = document.getElementById('pause-badge');
+const btnPause = document.getElementById('btn-pause');
+const btnFlipH = document.getElementById('btn-flip-h');
+const btnFlipV = document.getElementById('btn-flip-v');
+const btnRotate = document.getElementById('btn-rotate');
+const btnFullscreen = document.getElementById('btn-fullscreen');
+const zoomOptions = Array.from(document.querySelectorAll('.zoom-option'));
+const presetBar = document.getElementById('preset-bar');
+
+let zoom = 1.0;
+let panX = 0, panY = 0;
+let paused = false;
+let flipH = false;
+let flipV = false;
+let rotation = 0;
+let hudTimeout = null;
+let currentDeviceId = null;
+let currentStream = null;
+let dragging = false;
+let dragStartX = 0, dragStartY = 0, panStartX = 0, panStartY = 0;
+let touchMode = null;
+let touchStartDistance = 0;
+let touchStartZoom = 1;
+let activePresetSlot = null;
+let rotationResetTimer = null;
+
+const MIN_ZOOM = 1.0;
+const MAX_ZOOM = 8.0;
+const STORAGE_CAMERA_KEY = 'doccam.selectedCameraId';
+const PRESET_SLOTS = [1,2,3,4,5,6,7,8,9];
+
+function isOverlayPinned() {
+  return body.classList.contains('help-open') || body.classList.contains('zoom-open');
+}
+
+function getSavedCameraId() {
+  try { return localStorage.getItem(STORAGE_CAMERA_KEY); } catch { return null; }
+}
+
+function saveCameraId(deviceId) {
+  try {
+    if (deviceId) localStorage.setItem(STORAGE_CAMERA_KEY, deviceId);
+  } catch {}
+}
+
+function getDefaultPreset() {
+  return {
+    zoom: 1.2,
+    panX: 0,
+    panY: 0,
+    flipH: true,
+    flipV: false,
+    rotation: 0,
+    paused: false,
+    fullscreen: true,
+    cameraId: null,
+  };
+}
+
+function presetKey(slot) { return 'doccam.preset_' + slot; }
+
+function loadPresets() {
+  const presets = {};
+  for (const slot of PRESET_SLOTS) {
+    try {
+      const raw = localStorage.getItem(presetKey(slot));
+      if (raw) presets[String(slot)] = JSON.parse(raw);
+    } catch {}
+  }
+  return presets;
+}
+
+function savePresets(presets) {
+  for (const slot of PRESET_SLOTS) {
+    const key = presetKey(slot);
+    const val = presets[String(slot)];
+    try {
+      if (val) localStorage.setItem(key, JSON.stringify(val));
+      else localStorage.removeItem(key);
+    } catch {}
+  }
+}
+
+function normalizeState(state) {
+  return {
+    zoom: Number(state.zoom ?? 1),
+    panX: Number(state.panX ?? 0),
+    panY: Number(state.panY ?? 0),
+    flipH: !!state.flipH,
+    flipV: !!state.flipV,
+    rotation: Number(state.rotation ?? 0) % 360,
+    paused: !!state.paused,
+    fullscreen: !!state.fullscreen,
+    cameraId: state.cameraId || null,
+  };
+}
+
+function statesMatch(a, b) {
+  const x = normalizeState(a);
+  const y = normalizeState(b);
+  return (
+    Math.abs(x.zoom - y.zoom) < 0.001 &&
+    Math.abs(x.panX - y.panX) < 0.001 &&
+    Math.abs(x.panY - y.panY) < 0.001 &&
+    x.flipH === y.flipH &&
+    x.flipV === y.flipV &&
+    (x.rotation % 360) === (y.rotation % 360) &&
+    x.paused === y.paused &&
+    x.fullscreen === y.fullscreen
+  );
+}
+
+function getState() {
+  return {
+    zoom,
+    panX,
+    panY,
+    flipH,
+    flipV,
+    rotation: rotation % 360,
+    paused,
+    fullscreen: !!document.fullscreenElement,
+    cameraId: currentDeviceId || cameraSelect.value || null,
+  };
+}
+
+async function setFullscreenState(shouldBeFullscreen) {
+  const isFullscreen = !!document.fullscreenElement;
+  if (shouldBeFullscreen && !isFullscreen) {
+    try { await document.documentElement.requestFullscreen?.(); } catch {}
+  } else if (!shouldBeFullscreen && isFullscreen) {
+    try { await document.exitFullscreen?.(); } catch {}
+  }
+}
+
+function applyVisualState(state) {
+  const next = normalizeState(state);
+
+  if (rotationResetTimer) {
+    clearTimeout(rotationResetTimer);
+    rotationResetTimer = null;
+  }
+
+  zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next.zoom));
+  panX = next.panX;
+  panY = next.panY;
+  flipH = next.flipH;
+  flipV = next.flipV;
+  rotation = next.rotation;
+  paused = next.paused;
+  clampPan();
+  applyTransform();
+
+  if (paused) {
+    video.pause();
+    btnPause.classList.add('active');
+    pauseBadge.style.display = 'block';
+  } else {
+    try { video.play(); } catch {}
+    btnPause.classList.remove('active');
+    pauseBadge.style.display = 'none';
+  }
+}
+
+async function applyState(state) {
+  const next = normalizeState(state);
+
+  if (next.cameraId && next.cameraId !== currentDeviceId) {
+    const cams = await loadCameras({ requestPermission: true });
+    if (cams.some(cam => cam.deviceId === next.cameraId)) {
+      await startCamera(next.cameraId);
+    }
+  }
+
+  applyVisualState(state);
+  await setFullscreenState(next.fullscreen);
+  showHUD();
+}
+
+function updatePresetState() {
+  renderPresetBar();
+}
+
+function setCameraOptions(cams) {
+  const previous = cameraSelect.value;
+  const saved = getSavedCameraId();
+  cameraSelect.innerHTML = '';
+
+  cams.forEach((cam, i) => {
+    const opt = document.createElement('option');
+    opt.value = cam.deviceId;
+    const label = cam.label || `Camera ${i + 1}`;
+    const duplicateCount = cams.filter(c => c.label === cam.label && cam.label).length;
+    const shortId = cam.deviceId ? cam.deviceId.slice(0, 6) : '';
+    opt.textContent = duplicateCount > 1 ? `${label} (${shortId})` : label;
+    cameraSelect.appendChild(opt);
+  });
+
+  if (currentDeviceId && cams.some(cam => cam.deviceId === currentDeviceId)) {
+    cameraSelect.value = currentDeviceId;
+  } else if (saved && cams.some(cam => cam.deviceId === saved)) {
+    cameraSelect.value = saved;
+  } else if (previous && cams.some(cam => cam.deviceId === previous)) {
+    cameraSelect.value = previous;
+  }
+}
+
+async function loadCameras({ requestPermission = false } = {}) {
+  if (!navigator.mediaDevices?.enumerateDevices) return [];
+
+  let devices = await navigator.mediaDevices.enumerateDevices();
+  let cams = devices.filter(d => d.kind === 'videoinput');
+
+  if (requestPermission && cams.some(d => !d.label)) {
+    try {
+      const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      tempStream.getTracks().forEach(t => t.stop());
+      devices = await navigator.mediaDevices.enumerateDevices();
+      cams = devices.filter(d => d.kind === 'videoinput');
+    } catch {
+      return cams;
+    }
+  }
+
+  setCameraOptions(cams);
+  return cams;
+}
+
+async function startCamera(deviceId) {
+  if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+
+  const constraints = {
+    video: {
+      deviceId: deviceId ? { exact: deviceId } : undefined,
+      width: { ideal: 4096 },
+      height: { ideal: 2160 },
+      frameRate: { ideal: 30, min: 15 }
+    },
+    audio: false
+  };
+
+  const stream = await navigator.mediaDevices.getUserMedia(constraints);
+  currentStream = stream;
+
+  const track = stream.getVideoTracks()[0];
+  const settings = track.getSettings ? track.getSettings() : {};
+  currentDeviceId = settings.deviceId || deviceId || null;
+  saveCameraId(currentDeviceId);
+
+  video.srcObject = stream;
+  await video.play();
+
+  paused = false;
+  btnPause.classList.remove('active');
+  btnPause.textContent = 'Pause';
+  pauseBadge.style.display = 'none';
+
+  await loadCameras({ requestPermission: true });
+  if (currentDeviceId) cameraSelect.value = currentDeviceId;
+  applyTransform();
+  updatePresetState();
+}
+
+function updateButtonLabels() {
+  btnFlipH.textContent = `Horizontal: ${flipH ? 'flipped' : 'normal'}`;
+  btnFlipV.textContent = `Vertical: ${flipV ? 'flipped' : 'normal'}`;
+  btnRotate.textContent = `Rotate: ${rotation === 360 ? 360 : rotation}°`;
+  btnPause.textContent = paused ? 'Resume' : 'Pause';
+
+  btnFlipH.classList.toggle('active', flipH);
+  btnFlipV.classList.toggle('active', flipV);
+  btnRotate.classList.toggle('active', (rotation % 360) !== 0);
+
+  zoomOptions.forEach(option => {
+    const value = Number(option.dataset.zoom);
+    option.classList.toggle('active', Math.abs(zoom - value) < 0.05);
+  });
+}
+
+function applyTransform() {
+  const scaleX = flipH ? -1 : 1;
+  const scaleY = flipV ? -1 : 1;
+  video.style.transform = `translate(${panX}px, ${panY}px) rotate(${rotation}deg) scale(${zoom}) scale(${scaleX}, ${scaleY})`;
+  zoomDisplay.textContent = zoom.toFixed(1) + '×';
+
+  const pct = ((zoom - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM)) * 100;
+  zoomFill.style.height = pct + '%';
+
+  updateButtonLabels();
+}
+
+function clampPan() {
+  const limit = (zoom - 1) * 200;
+  panX = Math.min(limit, Math.max(-limit, panX));
+  panY = Math.min(limit, Math.max(-limit, panY));
+}
+
+function setZoom(nextZoom) {
+  zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
+  if (zoom === MIN_ZOOM) {
+    panX = 0;
+    panY = 0;
+  }
+  clampPan();
+  applyTransform();
+  updatePresetState();
+  showHUD();
+}
+
+function changeZoom(delta) {
+  setZoom(zoom + delta);
+}
+
+async function resetView() {
+  await applyState({
+    zoom: 1,
+    panX: 0,
+    panY: 0,
+    flipH: false,
+    flipV: false,
+    rotation: 0,
+    paused: false,
+    fullscreen: false,
+    cameraId: currentDeviceId,
+  });
+}
+
+function showHUD() {
+  hud.classList.add('visible');
+  zoomBar.classList.add('visible');
+  body.classList.add('cursor-visible');
+  clearTimeout(hudTimeout);
+
+  hudTimeout = setTimeout(() => {
+    if (isOverlayPinned()) return;
+    hud.classList.remove('visible');
+    zoomBar.classList.remove('visible');
+    body.classList.remove('cursor-visible');
+    if (!dragging) body.classList.remove('dragging');
+  }, 2000);
+}
+
+function closeOverlay(kind) {
+  if (kind === 'help') {
+    helpWrap.classList.remove('open');
+    body.classList.remove('help-open');
+  }
+  if (kind === 'zoom') {
+    zoomWrap.classList.remove('open');
+    body.classList.remove('zoom-open');
+  }
+  showHUD();
+}
+
+function openOverlay(kind) {
+  if (kind === 'help') {
+    helpWrap.classList.add('open');
+    body.classList.add('help-open');
+  }
+  if (kind === 'zoom') {
+    zoomWrap.classList.add('open');
+    body.classList.add('zoom-open');
+  }
+  showHUD();
+}
+
+function togglePause() {
+  paused = !paused;
+  if (paused) {
+    video.pause();
+    btnPause.classList.add('active');
+    pauseBadge.style.display = 'block';
+  } else {
+    video.play();
+    btnPause.classList.remove('active');
+    pauseBadge.style.display = 'none';
+  }
+  updateButtonLabels();
+  updatePresetState();
+  showHUD();
+}
+
+function toggleFlipH() {
+  flipH = !flipH;
+  applyTransform();
+  updatePresetState();
+  showHUD();
+}
+
+function toggleFlipV() {
+  flipV = !flipV;
+  applyTransform();
+  updatePresetState();
+  showHUD();
+}
+
+function normalizeRotationImmediate() {
+  if (rotation === 360) {
+    rotation = 0;
+    video.style.transition = 'none';
+    applyTransform();
+    video.offsetHeight;
+    video.style.transition = '';
+  }
+}
+
+function cycleRotation() {
+  if (rotationResetTimer) {
+    clearTimeout(rotationResetTimer);
+    rotationResetTimer = null;
+    normalizeRotationImmediate();
+  }
+
+  rotation = rotation + 90;
+  applyTransform();
+  updatePresetState();
+  showHUD();
+
+  if (rotation === 360) {
+    rotationResetTimer = window.setTimeout(() => {
+      normalizeRotationImmediate();
+      rotationResetTimer = null;
+      updatePresetState();
+    }, 90);
+  }
+}
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen?.();
+  } else {
+    document.exitFullscreen?.();
+  }
+  btnFullscreen.classList.toggle('active', !!document.fullscreenElement);
+  showHUD();
+  setTimeout(updatePresetState, 0);
+}
+
+function beginDrag(x, y) {
+  if (zoom <= 1) return;
+  dragging = true;
+  body.classList.add('dragging');
+  dragStartX = x;
+  dragStartY = y;
+  panStartX = panX;
+  panStartY = panY;
+}
+
+function updateDrag(x, y) {
+  panX = panStartX + (x - dragStartX) / zoom;
+  panY = panStartY + (y - dragStartY) / zoom;
+  clampPan();
+  applyTransform();
+  updatePresetState();
+}
+
+function endDrag() {
+  dragging = false;
+  body.classList.remove('dragging');
+}
+
+function getTouchDistance(touches) {
+  const [a, b] = touches;
+  return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+}
+
+function getTouchCenter(touches) {
+  const [a, b] = touches;
+  return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+}
+
+function renderPresetBar() {
+  const presets = loadPresets();
+  presetBar.innerHTML = '';
+
+  PRESET_SLOTS.forEach(slot => {
+    const key = String(slot);
+    const preset = presets[key];
+    if (!preset) return;
+
+    const isActive = activePresetSlot === slot;
+    const stateClass = isActive ? 'active' : 'inactive';
+
+    const wrap = document.createElement('div');
+    wrap.className = `preset-slot ${stateClass}`;
+
+    const btn = document.createElement('button');
+    btn.className = 'preset-btn';
+    btn.textContent = String(slot);
+    btn.title = `Preset ${slot}`;
+    btn.addEventListener('click', async () => {
+      showHUD();
+      await applyState(preset);
+      activePresetSlot = slot;
+      renderPresetBar();
+    });
+    wrap.appendChild(btn);
+    presetBar.appendChild(wrap);
+  });
+}
+
+function deletePreset(slot) {
+  const presets = loadPresets();
+  delete presets[String(slot)];
+  savePresets(presets);
+  if (activePresetSlot === slot) activePresetSlot = null;
+  renderPresetBar();
+}
+
+async function savePreset(slot) {
+  const key = String(slot);
+  const state = getState();
+  const presets = loadPresets();
+  presets[key] = state;
+  savePresets(presets);
+  activePresetSlot = slot;
+  renderPresetBar();
+  showHUD();
+}
+
+window.addEventListener('wheel', e => {
+  e.preventDefault();
+  changeZoom(-e.deltaY * 0.003);
+}, { passive: false });
+
+window.addEventListener('mousemove', e => {
+  showHUD();
+  if (!dragging) return;
+  updateDrag(e.clientX, e.clientY);
+});
+
+window.addEventListener('mousedown', e => {
+  showHUD();
+  beginDrag(e.clientX, e.clientY);
+});
+
+window.addEventListener('mouseup', () => endDrag());
+window.addEventListener('mouseleave', () => endDrag());
+window.addEventListener('touchstart', () => showHUD(), { passive: true });
+window.addEventListener('touchmove', () => showHUD(), { passive: true });
+window.addEventListener('touchend', () => showHUD(), { passive: true });
+window.addEventListener('fullscreenchange', () => {
+  btnFullscreen.classList.toggle('active', !!document.fullscreenElement);
+  updatePresetState();
+});
+
+video.addEventListener('touchstart', e => {
+  if (e.touches.length === 1 && zoom > 1) {
+    touchMode = 'pan';
+    beginDrag(e.touches[0].clientX, e.touches[0].clientY);
+  } else if (e.touches.length === 2) {
+    touchMode = 'pinch';
+    endDrag();
+    touchStartDistance = getTouchDistance(e.touches);
+    touchStartZoom = zoom;
+    const center = getTouchCenter(e.touches);
+    dragStartX = center.x;
+    dragStartY = center.y;
+    panStartX = panX;
+    panStartY = panY;
+  }
+}, { passive: false });
+
+video.addEventListener('touchmove', e => {
+  e.preventDefault();
+
+  if (touchMode === 'pan' && e.touches.length === 1) {
+    updateDrag(e.touches[0].clientX, e.touches[0].clientY);
+  } else if (touchMode === 'pinch' && e.touches.length === 2) {
+    const newDistance = getTouchDistance(e.touches);
+    zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, touchStartZoom * (newDistance / touchStartDistance)));
+
+    const center = getTouchCenter(e.touches);
+    panX = panStartX + (center.x - dragStartX) / zoom;
+    panY = panStartY + (center.y - dragStartY) / zoom;
+
+    if (zoom === MIN_ZOOM) {
+      panX = 0;
+      panY = 0;
+    }
+
+    clampPan();
+    applyTransform();
+    updatePresetState();
+  }
+}, { passive: false });
+
+video.addEventListener('touchend', e => {
+  if (e.touches.length === 0) {
+    touchMode = null;
+    endDrag();
+  } else if (e.touches.length === 1 && zoom > 1) {
+    touchMode = 'pan';
+    beginDrag(e.touches[0].clientX, e.touches[0].clientY);
+  }
+});
+
+window.addEventListener('keydown', async e => {
+  if (e.repeat) return;
+
+  if (e.ctrlKey && !e.metaKey && !e.altKey && /^[1-9]$/.test(e.key)) {
+    e.preventDefault();
+    await savePreset(Number(e.key));
+    return;
+  }
+
+  if (e.metaKey || e.altKey || (e.ctrlKey && !/^[1-9]$/.test(e.key))) return;
+
+  if (!e.ctrlKey && /^[1-9]$/.test(e.key)) {
+    const presets = loadPresets();
+    const preset = presets[e.key];
+    if (preset) {
+      e.preventDefault();
+      activePresetSlot = Number(e.key);
+      renderPresetBar();
+      await applyState(preset);
+    }
+    return;
+  }
+
+  switch (e.key) {
+    case '+':
+    case '=': changeZoom(0.2); break;
+    case '-': changeZoom(-0.2); break;
+    case '0': await resetView(); break;
+    case 'p':
+    case 'P': togglePause(); break;
+    case 'h':
+    case 'H': toggleFlipH(); break;
+    case 'v':
+    case 'V': toggleFlipV(); break;
+    case 'r':
+    case 'R': cycleRotation(); break;
+    case 'f':
+    case 'F': toggleFullscreen(); break;
+    case 'ArrowUp': panY += 30; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
+    case 'ArrowDown': panY -= 30; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
+    case 'ArrowLeft': panX += 30; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
+    case 'ArrowRight': panX -= 30; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
+    case 'Delete':
+      if (activePresetSlot !== null) {
+        deletePreset(activePresetSlot);
+        showHUD();
+      }
+      break;
+    case 'Escape':
+      closeOverlay('help');
+      closeOverlay('zoom');
+      if (document.fullscreenElement) {
+        document.exitFullscreen?.();
+      }
+      showHUD();
+      break;
+  }
+});
+
+cameraSelect.addEventListener('change', async () => {
+  saveCameraId(cameraSelect.value);
+  await startCamera(cameraSelect.value);
+});
+
+btnPause.addEventListener('click', togglePause);
+btnFlipH.addEventListener('click', toggleFlipH);
+btnFlipV.addEventListener('click', toggleFlipV);
+btnRotate.addEventListener('click', cycleRotation);
+btnFullscreen.addEventListener('click', toggleFullscreen);
+
+helpToggle.addEventListener('mouseenter', () => openOverlay('help'));
+helpWrap.addEventListener('mouseenter', () => openOverlay('help'));
+helpWrap.addEventListener('mouseleave', () => closeOverlay('help'));
+
+zoomDisplay.addEventListener('mouseenter', () => openOverlay('zoom'));
+zoomWrap.addEventListener('mouseenter', () => openOverlay('zoom'));
+zoomWrap.addEventListener('mouseleave', () => closeOverlay('zoom'));
+
+zoomOptions.forEach(option => {
+  option.addEventListener('click', () => {
+    const value = Number(option.dataset.zoom);
+    setZoom(value);
+    closeOverlay('zoom');
+  });
+});
+
+if (navigator.mediaDevices?.addEventListener) {
+  navigator.mediaDevices.addEventListener('devicechange', async () => {
+    const cams = await loadCameras({ requestPermission: true });
+    if (!cams.length) return;
+
+    if (currentDeviceId && !cams.some(cam => cam.deviceId === currentDeviceId)) {
+      const fallback = getSavedCameraId() || cams[0].deviceId;
+      await startCamera(fallback);
+    }
+  });
+}
+
+(async function init() {
+  const existing = loadPresets();
+  let pendingPreset = null;
+
+  if (!PRESET_SLOTS.some(slot => !!existing[String(slot)])) {
+    const def = getDefaultPreset();
+    const presets = { '1': def };
+    savePresets(presets);
+    pendingPreset = def;
+  }
+
+  renderPresetBar();
+  showHUD();
+  const cams = await loadCameras({ requestPermission: true });
+  if (!cams.length) return;
+
+  const saved = getSavedCameraId();
+  const initialDeviceId = (saved && cams.some(cam => cam.deviceId === saved))
+    ? saved
+    : cameraSelect.value || cams[0].deviceId;
+
+  await startCamera(initialDeviceId);
+
+  if (pendingPreset) {
+    await applyVisualState(pendingPreset);
+    await setFullscreenState(pendingPreset.fullscreen);
+    renderPresetBar();
+  } else {
+    const loaded = loadPresets();
+    const matchKey = Object.keys(loaded).find(k => statesMatch(getState(), loaded[k]));
+    activePresetSlot = matchKey ? Number(matchKey) : null;
+    renderPresetBar();
+  }
+})();
+</script>
+</body>
+</html>
