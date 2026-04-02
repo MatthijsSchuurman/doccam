@@ -13,6 +13,13 @@
     --space-lg: 24px;
     --space-xl: 32px;
 
+    /* UI dimensions */
+    --pause-badge-top: 20px;
+    --pause-badge-right: 90px;
+    --zoom-bar-width: 8px;
+    --zoom-bar-height: 120px;
+    --zoom-bar-top-offset: 50%; /* for translateY(-50%) */
+
     /* Border radius */
     --radius-sm: 4px;
     --radius-md: 8px;
@@ -365,10 +372,10 @@
   #zoom-bar {
     position: fixed;
     left: var(--space-md);
-    top: 50%;
+    top: var(--zoom-bar-top-offset);
     transform: translateY(-50%);
-    width: 8px;
-    height: 120px;
+    width: var(--zoom-bar-width);
+    height: var(--zoom-bar-height);
     background: rgba(255,255,255,0.1);
     border-radius: var(--radius-sm);
     z-index: 11;
@@ -393,8 +400,8 @@
 
   #pause-badge {
     position: fixed;
-    top: 20px;
-    right: 90px;
+    top: var(--pause-badge-top);
+    right: var(--pause-badge-right);
     background: var(--color-pause-active);
     color: var(--color-text);
     font-family: monospace;
@@ -451,7 +458,7 @@
     </div>
     <div class="top-right">
       <div id="help-wrap">
-        <button id="help-toggle" class="help-toggle" aria-label="Help, opens keyboard shortcuts">?</button>
+        <button id="help-toggle" class="help-toggle" aria-label="Help, opens keyboard shortcuts" aria-expanded="false">?</button>
         <div class="help-panel" role="dialog" aria-labelledby="help-title">
           <div class="help-title" id="help-title">Help</div>
           <table class="help-table">
@@ -481,7 +488,7 @@
 
   <div class="bottom-bar">
     <div id="zoom-wrap">
-      <button id="zoom-display" class="zoom-trigger" aria-haspopup="true" aria-label="Zoom level, click to change">1.0×</button>
+      <button id="zoom-display" class="zoom-trigger" aria-haspopup="true" aria-expanded="false" aria-label="Zoom level, click to change">1.0×</button>
       <div class="zoom-panel" role="menu" aria-label="Zoom options">
         <div class="zoom-title">Zoom</div>
         <button class="zoom-option" role="menuitem" data-zoom="8">8×</button>
@@ -944,10 +951,12 @@ function closeOverlay(kind) {
   if (kind === 'help') {
     helpWrap.classList.remove('open');
     body.classList.remove('help-open');
+    helpToggle.setAttribute('aria-expanded', 'false');
   }
   if (kind === 'zoom') {
     zoomWrap.classList.remove('open');
     body.classList.remove('zoom-open');
+    zoomDisplay.setAttribute('aria-expanded', 'false');
   }
   showHUD();
 }
@@ -956,12 +965,33 @@ function openOverlay(kind) {
   if (kind === 'help') {
     helpWrap.classList.add('open');
     body.classList.add('help-open');
+    helpToggle.setAttribute('aria-expanded', 'true');
   }
   if (kind === 'zoom') {
     zoomWrap.classList.add('open');
     body.classList.add('zoom-open');
+    zoomDisplay.setAttribute('aria-expanded', 'true');
   }
   showHUD();
+}
+
+function toggleOverlay(kind) {
+  if (kind === 'help') {
+    if (helpWrap.classList.contains('open')) {
+      closeOverlay('help');
+    } else {
+      closeOverlay('zoom');
+      openOverlay('help');
+    }
+  }
+  if (kind === 'zoom') {
+    if (zoomWrap.classList.contains('open')) {
+      closeOverlay('zoom');
+    } else {
+      closeOverlay('help');
+      openOverlay('zoom');
+    }
+  }
 }
 
 function togglePause() {
@@ -1216,6 +1246,7 @@ window.addEventListener('keydown', async e => {
     case '+':
     case '=': changeZoom(0.2); break;
     case '-': changeZoom(-0.2); break;
+    case '?': toggleOverlay('help'); break;
     case '0': await resetView(); break;
     case 'p':
     case 'P': togglePause(); break;
@@ -1259,10 +1290,12 @@ btnFlipV.addEventListener('click', toggleFlipV);
 btnRotate.addEventListener('click', cycleRotation);
 btnFullscreen.addEventListener('click', toggleFullscreen);
 
+helpToggle.addEventListener('click', () => toggleOverlay('help'));
 helpToggle.addEventListener('mouseenter', () => openOverlay('help'));
 helpWrap.addEventListener('mouseenter', () => openOverlay('help'));
 helpWrap.addEventListener('mouseleave', () => closeOverlay('help'));
 
+zoomDisplay.addEventListener('click', () => toggleOverlay('zoom'));
 zoomDisplay.addEventListener('mouseenter', () => openOverlay('zoom'));
 zoomWrap.addEventListener('mouseenter', () => openOverlay('zoom'));
 zoomWrap.addEventListener('mouseleave', () => closeOverlay('zoom'));
