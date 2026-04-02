@@ -618,6 +618,7 @@ async function applyState(state) {
   }
 
   applyVisualState(state);
+  updatePresetState();
   await setFullscreenState(next.fullscreen);
   showHUD();
 }
@@ -635,12 +636,10 @@ function setCameraOptions(cams) {
   cameraSelect.innerHTML = '';
 
   cams.forEach((cam, i) => {
+    const label = cam.label ? cam.label.replace(/\s*\([^)]+\)\s*$/, '').trim() : null;
     const opt = document.createElement('option');
     opt.value = cam.deviceId;
-    const label = cam.label || `Camera ${i + 1}`;
-    const duplicateCount = cams.filter(c => c.label === cam.label && cam.label).length;
-    const shortId = cam.deviceId ? cam.deviceId.slice(0, 6) : '';
-    opt.textContent = duplicateCount > 1 ? `${label} (${shortId})` : label;
+    opt.textContent = label || `Camera ${i + 1}`;
     cameraSelect.appendChild(opt);
   });
 
