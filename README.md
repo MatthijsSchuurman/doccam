@@ -11,6 +11,9 @@ Simple webcam based document viewer with minimal UI to have a frictionless digit
 - **Fullscreen** — Press F to toggle
 - **Pause** — Freeze the feed anytime
 
+### Screenshot
+![Screenshot](screenshot.jpg)
+
 ## Technical Details
 
 - Single HTML file — all CSS/JS inline
