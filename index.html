@@ -101,12 +101,12 @@
   .zoom-trigger,
   .preset-btn {
     background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.15);
     color: #fff;
     font-family: monospace;
-    font-size: 12px;
-    padding: 5px 9px;
-    border-radius: 4px;
+    font-size: 24px;
+    padding: 10px 18px;
+    border-radius: 8px;
     outline: none;
     pointer-events: all;
   }
@@ -163,31 +163,31 @@
   }
 
   .help-toggle {
-    width: 28px;
-    height: 28px;
+    width: 56px;
+    height: 56px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: 999px;
-    border: 1px solid rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.15);
     background: rgba(255,255,255,0.08);
     color: #fff;
     font-family: monospace;
-    font-size: 14px;
+    font-size: 28px;
     cursor: pointer;
   }
 
   .help-panel {
     position: absolute;
-    top: 18px;
+    top: 36px;
     right: 0;
-    width: min(420px, calc(100vw - 32px));
-    padding: 10px 12px;
-    border-radius: 6px;
-    border: 1px solid rgba(255,255,255,0.15);
+    width: min(500px, calc(100vw - 32px));
+    padding: 20px 24px;
+    border-radius: 12px;
+    border: 2px solid rgba(255,255,255,0.15);
     background: rgba(0,0,0,0.9);
     color: rgba(255,255,255,0.88);
-    font-size: 11px;
+    font-size: 22px;
     line-height: 1.45;
     display: none;
   }
@@ -203,7 +203,7 @@
     color: #fff;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    margin-bottom: 6px;
+    margin-bottom: 12px;
   }
 
 
@@ -214,21 +214,21 @@
   }
 
   .help-group-row td {
-    padding: 14px 0 6px 0;
+    padding: 28px 0 12px 0;
     color: #fff;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    font-size: 10px;
+    font-size: 20px;
   }
 
   .help-table td {
-    padding: 3px 0;
+    padding: 6px 0;
     vertical-align: top;
   }
 
   .help-key {
-    width: 116px;
-    padding-right: 12px !important;
+    width: 132px;
+    padding-right: 24px !important;
     color: #fff;
     white-space: nowrap;
   }
@@ -239,30 +239,34 @@
 
   .help-panel kbd {
     display: inline-block;
-    min-width: 18px;
-    padding: 1px 5px;
+    min-width: 36px;
+    padding: 2px 10px;
     margin-right: 6px;
-    border-radius: 4px;
-    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    border: 2px solid rgba(255,255,255,0.2);
     background: rgba(255,255,255,0.08);
     color: #fff;
     font: inherit;
     text-align: center;
   }
+  .help-panel kbd.up {
+    margin-bottom: 6px;
+    margin-left: 43px;
+  }
 
   .zoom-trigger {
-    min-width: 58px;
+    min-width: 116px;
     text-align: left;
   }
 
   .zoom-panel {
     position: absolute;
-    bottom: 34px;
+    bottom: 68px;
     left: 0;
-    min-width: 90px;
-    padding: 8px;
-    border-radius: 6px;
-    border: 1px solid rgba(255,255,255,0.15);
+    min-width: 180px;
+    padding: 16px;
+    border-radius: 12px;
+    border: 2px solid rgba(255,255,255,0.15);
     background: rgba(0,0,0,0.9);
     display: none;
   }
@@ -276,13 +280,13 @@
   .zoom-option {
     width: 100%;
     text-align: left;
-    padding: 5px 7px;
+    padding: 10px 14px;
     border: 0;
-    border-radius: 4px;
+    border-radius: 8px;
     background: transparent;
     color: #fff;
     font-family: monospace;
-    font-size: 12px;
+    font-size: 24px;
     cursor: pointer;
   }
 
@@ -292,7 +296,7 @@
 
   #preset-bar {
     display: flex;
-    gap: 6px;
+    gap: 12px;
     flex-wrap: wrap;
     justify-content: center;
   }
@@ -302,9 +306,9 @@
   }
 
   .preset-btn {
-    min-width: 32px;
+    min-width: 64px;
     text-align: center;
-    padding: 5px 11px;
+    padding: 10px 22px;
   }
 
   .preset-slot.inactive .preset-btn {
@@ -350,15 +354,15 @@
 
   #pause-badge {
     position: fixed;
-    top: 16px;
-    right: 16px;
+    top: 20px;
+    right: 90px;
     background: rgba(255,40,40,0.8);
     color: #fff;
     font-family: monospace;
-    font-size: 11px;
+    font-size: 22px;
     letter-spacing: 0.15em;
-    padding: 3px 8px;
-    border-radius: 3px;
+    padding: 6px 16px;
+    border-radius: 6px;
     display: none;
     z-index: 20;
   }
@@ -386,7 +390,7 @@
             <tr><td class="help-key">Mouse</td><td class="help-desc">zoom, pan</td></tr>
             <tr><td class="help-key">Touch</td><td class="help-desc">zoom &amp; pan</td></tr>
             <tr><td class="help-key"><kbd>+</kbd> <kbd>-</kbd></td><td class="help-desc">zoom in / out</td></tr>
-            <tr><td class="help-key"><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></td><td class="help-desc">pan</td></tr>
+            <tr><td class="help-key"><kbd class="up">↑</kbd><br><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></td><td class="help-desc">pan</td></tr>
 
             <tr class="help-group-row"><td colspan="2">Settings</td></tr>
             <tr><td class="help-key"><kbd>F</kbd></td><td class="help-desc">toggle fullscreen</td></tr>
