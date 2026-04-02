@@ -386,21 +386,21 @@
 </head>
 <body>
 
-<video id="video" autoplay playsinline muted></video>
+<video id="video" autoplay playsinline muted aria-label="Camera feed showing document"></video>
 
-<div id="hud">
+<div id="hud" role="toolbar" aria-label="Document camera controls">
   <div class="top-bar">
     <div class="top-left">
-      <select id="camera-select" title="Camera"></select>
+      <select id="camera-select" aria-label="Select camera device"></select>
     </div>
     <div class="top-center">
-      <div id="preset-bar"></div>
+      <div id="preset-bar" role="group" aria-label="Preset slots"></div>
     </div>
     <div class="top-right">
       <div id="help-wrap">
-        <button id="help-toggle" class="help-toggle" title="Help">?</button>
-        <div class="help-panel">
-          <div class="help-title">Help</div>
+        <button id="help-toggle" class="help-toggle" aria-label="Help, opens keyboard shortcuts">?</button>
+        <div class="help-panel" role="dialog" aria-labelledby="help-title">
+          <div class="help-title" id="help-title">Help</div>
           <table class="help-table">
             <tr class="help-group-row"><td colspan="2">Zoom</td></tr>
             <tr><td class="help-key">Mouse</td><td class="help-desc">zoom, pan</td></tr>
@@ -428,29 +428,29 @@
 
   <div class="bottom-bar">
     <div id="zoom-wrap">
-      <button id="zoom-display" class="zoom-trigger" title="Zoom presets">1.0×</button>
-      <div class="zoom-panel">
+      <button id="zoom-display" class="zoom-trigger" aria-haspopup="true" aria-label="Zoom level, click to change">1.0×</button>
+      <div class="zoom-panel" role="menu" aria-label="Zoom options">
         <div class="zoom-title">Zoom</div>
-        <button class="zoom-option" data-zoom="8">8×</button>
-        <button class="zoom-option" data-zoom="4">4×</button>
-        <button class="zoom-option" data-zoom="2">2×</button>
-        <button class="zoom-option" data-zoom="1">1×</button>
+        <button class="zoom-option" role="menuitem" data-zoom="8">8×</button>
+        <button class="zoom-option" role="menuitem" data-zoom="4">4×</button>
+        <button class="zoom-option" role="menuitem" data-zoom="2">2×</button>
+        <button class="zoom-option" role="menuitem" data-zoom="1">1×</button>
       </div>
     </div>
 
-    <div class="bottom-actions">
-      <button id="btn-flip-h" class="hud-btn" title="Horizontal flip (H)">Horizontal: normal</button>
-      <button id="btn-flip-v" class="hud-btn" title="Vertical flip (V)">Vertical: normal</button>
-      <button id="btn-rotate" class="hud-btn" title="Rotate (R)">Rotate: 0°</button>
-      <button id="btn-pause" class="hud-btn" title="Pause / resume (P)">Pause</button>
-      <button id="btn-fullscreen" class="hud-btn" title="Fullscreen (F), exit with Esc">Fullscreen</button>
+    <div class="bottom-actions" role="group" aria-label="Image adjustments">
+      <button id="btn-flip-h" class="hud-btn" aria-pressed="false" aria-label="Horizontal flip, currently normal">Horizontal: normal</button>
+      <button id="btn-flip-v" class="hud-btn" aria-pressed="false" aria-label="Vertical flip, currently normal">Vertical: normal</button>
+      <button id="btn-rotate" class="hud-btn" aria-pressed="false" aria-label="Rotate image 90 degrees">Rotate: 0°</button>
+      <button id="btn-pause" class="hud-btn" aria-pressed="false" aria-label="Pause camera feed">Pause</button>
+      <button id="btn-fullscreen" class="hud-btn" aria-pressed="false" aria-label="Enter fullscreen mode">Fullscreen</button>
     </div>
   </div>
 </div>
 
-<div id="zoom-bar"><div id="zoom-fill"></div></div>
-<div id="pause-badge">● PAUSED</div>
-<div id="error-banner" class="hud-btn"></div>
+<div id="zoom-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Zoom level"><div id="zoom-fill"></div></div>
+<div id="pause-badge" aria-live="polite">● PAUSED</div>
+<div id="error-banner" class="hud-btn" aria-live="assertive" role="alert"></div>
 
 <script>
 const video = document.getElementById('video');
@@ -801,6 +801,23 @@ function updateButtonLabels() {
   btnFlipV.classList.toggle('active', flipV);
   btnRotate.classList.toggle('active', (rotation % 360) !== 0);
 
+  btnFlipH.setAttribute('aria-pressed', flipH);
+  btnFlipH.setAttribute('aria-label', `Horizontal flip, currently ${flipH ? 'flipped' : 'normal'}`);
+  btnFlipV.setAttribute('aria-pressed', flipV);
+  btnFlipV.setAttribute('aria-label', `Vertical flip, currently ${flipV ? 'flipped' : 'normal'}`);
+  btnRotate.setAttribute('aria-pressed', (rotation % 360) !== 0);
+  btnRotate.setAttribute('aria-label', `Rotate ${rotation} degrees`);
+  btnPause.setAttribute('aria-pressed', paused);
+  btnPause.setAttribute('aria-label', paused ? 'Resume camera feed' : 'Pause camera feed');
+  btnFullscreen.setAttribute('aria-pressed', !!document.fullscreenElement);
+  btnFullscreen.setAttribute('aria-label', document.fullscreenElement ? 'Exit fullscreen' : 'Enter fullscreen');
+
+  pauseBadge.textContent = paused ? '● PAUSED' : '';
+  pauseBadge.setAttribute('aria-hidden', !paused);
+
+  zoomDisplay.setAttribute('aria-label', `Zoom level ${zoom.toFixed(1)}x, click to change`);
+  zoomDisplay.textContent = zoom.toFixed(1) + '×';
+
   zoomOptions.forEach(option => {
     const value = Number(option.dataset.zoom);
     option.classList.toggle('active', Math.abs(zoom - value) < ZOOM_ACTIVE_THRESHOLD);
@@ -811,10 +828,10 @@ function applyTransform() {
   const scaleX = flipH ? -1 : 1;
   const scaleY = flipV ? -1 : 1;
   video.style.transform = `translate(${panX}px, ${panY}px) rotate(${rotation}deg) scale(${zoom}) scale(${scaleX}, ${scaleY})`;
-  zoomDisplay.textContent = zoom.toFixed(1) + '×';
 
   const pct = ((zoom - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM)) * 100;
   zoomFill.style.height = pct + '%';
+  zoomBar.setAttribute('aria-valuenow', Math.round(pct));
 
   updateButtonLabels();
 }
