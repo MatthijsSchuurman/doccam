@@ -41,6 +41,11 @@
     --color-pause-active: rgba(255,60,60,0.3);
     --color-pause-border: rgba(255,60,60,0.5);
 
+    /* Messages */
+    --color-success: rgba(0,200,80,0.3);
+    --color-warning: rgba(255,180,60,0.3);
+    --color-info: rgba(60,120,255,0.3);
+
     /* Text */
     --color-text-dim: rgba(255,255,255,0.82);
 
@@ -413,7 +418,7 @@
     z-index: 20;
   }
 
-  #error-banner {
+  #message-banner {
     position: fixed;
     bottom: var(--space-lg);
     left: 50%;
@@ -428,6 +433,10 @@
     z-index: 30;
     text-align: center;
   }
+
+  #message-banner.success { background: var(--color-success); }
+  #message-banner.warning { background: var(--color-warning); }
+  #message-banner.info { background: var(--color-info); }
 
   :focus-visible {
     outline: 3px solid var(--color-btn-active);
@@ -480,6 +489,10 @@
             <tr><td class="help-key"><kbd>1-9</kbd></td><td class="help-desc">load preset</td></tr>
             <tr><td class="help-key"><kbd>Ctrl+1-9</kbd></td><td class="help-desc">save preset</td></tr>
             <tr><td class="help-key"><kbd>Delete</kbd></td><td class="help-desc">delete active preset</td></tr>
+
+            <tr class="help-group-row"><td colspan="2">Capture</td></tr>
+            <tr><td class="help-key"><kbd>Ctrl+C</kbd></td><td class="help-desc">copy frame to clipboard</td></tr>
+            <tr><td class="help-key"><kbd>Ctrl+S</kbd></td><td class="help-desc">save frame as PNG</td></tr>
           </table>
         </div>
       </div>
@@ -510,7 +523,7 @@
 
 <div id="zoom-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Zoom level"><div id="zoom-fill"></div></div>
 <div id="pause-badge" aria-live="polite">● PAUSED</div>
-<div id="error-banner" class="hud-btn" aria-live="assertive" role="alert"></div>
+<div id="message-banner" class="hud-btn" aria-live="assertive" role="alert"></div>
 
 <script>
 const video = document.getElementById('video');
@@ -524,7 +537,7 @@ const cameraSelect = document.getElementById('camera-select');
 const helpWrap = document.getElementById('help-wrap');
 const helpToggle = document.getElementById('help-toggle');
 const pauseBadge = document.getElementById('pause-badge');
-const errorBanner = document.getElementById('error-banner');
+const errorBanner = document.getElementById('message-banner');
 const btnPause = document.getElementById('btn-pause');
 const btnFlipH = document.getElementById('btn-flip-h');
 const btnFlipV = document.getElementById('btn-flip-v');
@@ -564,13 +577,58 @@ const HUD_TIMEOUT_MS = 2000;
 const FLOAT_EPSILON = 0.001;
 const ZOOM_ACTIVE_THRESHOLD = 0.05;
 const ERROR_DISPLAY_MS = 5000;
+const CAPTURE_FILENAME_PREFIX = 'doccam-capture';
 
-function showError(message) {
+function captureFrame() {
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth || video.clientWidth;
+  canvas.height = video.videoHeight || video.clientHeight;
+  const ctx = canvas.getContext('2d');
+
+  ctx.translate(canvas.width / 2 + panX, canvas.height / 2 + panY);
+  ctx.rotate(rotation * Math.PI / 180);
+  ctx.scale(zoom * (flipH ? -1 : 1), zoom * (flipV ? -1 : 1));
+  ctx.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2, video.videoWidth, video.videoHeight);
+
+  return canvas;
+}
+
+async function copyFrameToClipboard() {
+  const canvas = captureFrame();
+  canvas.toBlob(async blob => {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+      showMessage('Image copied to clipboard', 'success', 2000);
+    } catch (e) {
+      showMessage('Failed to copy: ' + e.message);
+    }
+  });
+}
+
+function saveFrameToFile() {
+  const canvas = captureFrame();
+  const now = new Date();
+  const timestamp = now.toISOString().replace(/T/, '-').replace(/:/g, '').slice(0, 19);
+  const filename = `${CAPTURE_FILENAME_PREFIX}-${timestamp}.png`;
+
+  const link = document.createElement('a');
+  link.download = filename;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+let messageTimeout = null;
+
+function showMessage(message, type = 'error', duration = ERROR_DISPLAY_MS) {
+  clearTimeout(messageTimeout);
   errorBanner.textContent = message;
+  errorBanner.className = type;
   errorBanner.style.display = 'block';
-  setTimeout(() => {
+  messageTimeout = setTimeout(() => {
     errorBanner.style.display = 'none';
-  }, ERROR_DISPLAY_MS);
+  }, duration);
 }
 
 function isOverlayPinned() {
@@ -820,13 +878,13 @@ async function startCamera(deviceId) {
     stream = await navigator.mediaDevices.getUserMedia(constraints);
   } catch (e) {
     if (e.name === 'NotAllowedError') {
-      showError('Camera access denied. Please allow camera permission and refresh.');
+      showMessage('Camera access denied. Please allow camera permission and refresh.');
     } else if (e.name === 'NotFoundError') {
-      showError('No camera found. Please connect a camera and refresh.');
+      showMessage('No camera found. Please connect a camera and refresh.');
     } else if (e.name === 'NotReadableError') {
-      showError('Camera in use by another app. Close other apps using the camera.');
+      showMessage('Camera in use by another app. Close other apps using the camera.');
     } else {
-      showError(`Camera error: ${e.message || e.name}`);
+      showMessage(`Camera error: ${e.message || e.name}`);
     }
     return;
   }
@@ -1163,7 +1221,7 @@ window.addEventListener('fullscreenchange', () => {
 });
 
 video.addEventListener('error', () => {
-  showError('Video stream error. Please try a different camera or refresh.');
+  showMessage('Video stream error. Please try a different camera or refresh.');
 });
 
 video.addEventListener('touchstart', e => {
@@ -1223,6 +1281,18 @@ window.addEventListener('keydown', async e => {
   if (e.ctrlKey && !e.metaKey && !e.altKey && /^[1-9]$/.test(e.key)) {
     e.preventDefault();
     await savePreset(Number(e.key));
+    return;
+  }
+
+  if (e.ctrlKey && !e.altKey && (e.key === 'c' || e.key === 'C')) {
+    e.preventDefault();
+    await copyFrameToClipboard();
+    return;
+  }
+
+  if (e.ctrlKey && !e.altKey && (e.key === 's' || e.key === 'S')) {
+    e.preventDefault();
+    saveFrameToFile();
     return;
   }
 
