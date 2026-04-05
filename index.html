@@ -575,7 +575,6 @@ const PRESET_SLOTS = [1,2,3,4,5,6,7,8,9];
 
 const PAN_STEP = 30;
 const WHEEL_SENSITIVITY = 0.003;
-const PAN_LIMIT_MULTIPLIER = 200;
 const ROTATION_RESET_DELAY_MS = 90;
 const HUD_TIMEOUT_MS = 2000;
 const FLOAT_EPSILON = 0.001;
@@ -1002,9 +1001,10 @@ function applyTransform() {
 }
 
 function clampPan() {
-  const limit = (zoom - 1) * PAN_LIMIT_MULTIPLIER;
-  panX = Math.min(limit, Math.max(-limit, panX));
-  panY = Math.min(limit, Math.max(-limit, panY));
+  const overflowX = Math.max(0, window.innerWidth * (zoom - 1)) / 2;
+  const overflowY = Math.max(0, window.innerHeight * (zoom - 1)) / 2;
+  panX = Math.min(overflowX, Math.max(-overflowX, panX));
+  panY = Math.min(overflowY, Math.max(-overflowY, panY));
 }
 
 function setZoom(nextZoom) {
@@ -1169,8 +1169,8 @@ function beginDrag(x, y) {
 }
 
 function updateDrag(x, y) {
-  panX = panStartX + (x - dragStartX) * zoom;
-  panY = panStartY + (y - dragStartY) * zoom;
+  panX = panStartX + (x - dragStartX);
+  panY = panStartY + (y - dragStartY);
   clampPan();
   applyTransform();
   updatePresetState();
@@ -1329,8 +1329,6 @@ video.addEventListener('touchend', e => {
 });
 
 window.addEventListener('keydown', async e => {
-  if (e.repeat) return;
-
   if (e.ctrlKey && !e.metaKey && !e.altKey && /^[1-9]$/.test(e.key)) {
     e.preventDefault();
     await savePreset(Number(e.key));
