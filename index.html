@@ -783,7 +783,7 @@ function handleVisibilityChange() {
       video.pause();
       pauseBadge.style.display = 'block';
     }
-    
+
     hiddenTimer = setTimeout(() => {
       if (currentStream) {
         currentStream.getTracks().forEach(t => t.stop());
@@ -794,7 +794,7 @@ function handleVisibilityChange() {
   } else {
     clearTimeout(hiddenTimer);
     hiddenTimer = null;
-    
+
     if (streamStopped && currentStream === null) {
       startCamera(currentDeviceId);
       streamStopped = false;
@@ -808,12 +808,12 @@ function handleVisibilityChange() {
 function resetAutoPause() {
   clearTimeout(hiddenTimer);
   hiddenTimer = null;
-  
+
   if (!paused) {
     video.play();
     pauseBadge.style.display = 'none';
   }
-  
+
   if (streamStopped) {
     startCamera(currentDeviceId);
     streamStopped = false;
@@ -1168,8 +1168,8 @@ function beginDrag(x, y) {
 }
 
 function updateDrag(x, y) {
-  panX = panStartX + (x - dragStartX) / zoom;
-  panY = panStartY + (y - dragStartY) / zoom;
+  panX = panStartX + (x - dragStartX) * zoom;
+  panY = panStartY + (y - dragStartY) * zoom;
   clampPan();
   applyTransform();
   updatePresetState();
@@ -1303,8 +1303,8 @@ video.addEventListener('touchmove', e => {
     zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, touchStartZoom * (newDistance / touchStartDistance)));
 
     const center = getTouchCenter(e.touches);
-    panX = panStartX + (center.x - dragStartX) / zoom;
-    panY = panStartY + (center.y - dragStartY) / zoom;
+    panX = panStartX + (center.x - dragStartX) * zoom;
+    panY = panStartY + (center.y - dragStartY) * zoom;
 
     if (zoom === MIN_ZOOM) {
       panX = 0;
@@ -1380,10 +1380,10 @@ window.addEventListener('keydown', async e => {
     case 'R': cycleRotation(); break;
     case 'f':
     case 'F': toggleFullscreen(); break;
-    case 'ArrowUp': panY += PAN_STEP; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
-    case 'ArrowDown': panY -= PAN_STEP; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
-    case 'ArrowLeft': panX += PAN_STEP; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
-    case 'ArrowRight': panX -= PAN_STEP; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
+    case 'ArrowUp': panY += PAN_STEP * zoom; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
+    case 'ArrowDown': panY -= PAN_STEP * zoom; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
+    case 'ArrowLeft': panX += PAN_STEP * zoom; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
+    case 'ArrowRight': panX -= PAN_STEP * zoom; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
     case 'Delete':
       if (activePresetSlot !== null) {
         deletePreset(activePresetSlot);
