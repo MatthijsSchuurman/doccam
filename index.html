@@ -550,6 +550,7 @@ const presetBar = document.getElementById('preset-bar');
 let zoom = 1.0;
 let panX = 0, panY = 0;
 let paused = false;
+let fullscreen = false;
 let flipH = false;
 let flipV = false;
 let rotation = 0;
@@ -748,7 +749,7 @@ function getState() {
     flipV,
     rotation: rotation % 360,
     paused,
-    fullscreen: !!document.fullscreenElement,
+    fullscreen,
     cameraId: currentDeviceId || cameraSelect.value || null,
   };
 }
@@ -778,7 +779,16 @@ function setPaused(shouldPause) {
   showHUD();
 }
 
-function handleVisibilityChange() {
+async function setFullscreen(shouldBeFullscreen) {
+  fullscreen = shouldBeFullscreen;
+  await setFullscreenState(shouldBeFullscreen);
+  btnFullscreen.classList.toggle('active', shouldBeFullscreen);
+  updateButtonLabels();
+  updatePresetState();
+  showHUD();
+}
+
+async function handleVisibilityChange() {
   if (document.hidden) {
     if (!paused) {
       video.pause();
@@ -821,6 +831,12 @@ function resetAutoPause() {
   }
 }
 
+function restoreFullscreenIfNeeded() {
+  if (fullscreen && !document.fullscreenElement) {
+    setFullscreenState(true);
+  }
+}
+
 function applyVisualState(state) {
   const next = normalizeState(state);
 
@@ -852,9 +868,7 @@ async function applyState(state) {
   }
 
   applyVisualState(state);
-  updatePresetState();
-  await setFullscreenState(next.fullscreen);
-  showHUD();
+  await setFullscreen(next.fullscreen);
 }
 
 function updatePresetState() {
@@ -974,8 +988,8 @@ function updateButtonLabels() {
   btnRotate.setAttribute('aria-label', `Rotate ${rotation} degrees`);
   btnPause.setAttribute('aria-pressed', paused);
   btnPause.setAttribute('aria-label', paused ? 'Resume camera feed' : 'Pause camera feed');
-  btnFullscreen.setAttribute('aria-pressed', !!document.fullscreenElement);
-  btnFullscreen.setAttribute('aria-label', document.fullscreenElement ? 'Exit fullscreen' : 'Enter fullscreen');
+  btnFullscreen.setAttribute('aria-pressed', fullscreen);
+  btnFullscreen.setAttribute('aria-label', fullscreen ? 'Exit fullscreen' : 'Enter fullscreen');
 
   pauseBadge.textContent = paused ? '● PAUSED' : '';
   pauseBadge.setAttribute('aria-hidden', !paused);
@@ -1163,14 +1177,13 @@ function cycleRotation() {
   }
 }
 
-function toggleFullscreen() {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen?.();
+async function toggleFullscreen() {
+  const isInFullscreen = !!document.fullscreenElement;
+  if (fullscreen !== isInFullscreen) {
+    await setFullscreen(fullscreen);
   } else {
-    document.exitFullscreen?.();
+    await setFullscreen(!fullscreen);
   }
-  btnFullscreen.classList.toggle('active', !!document.fullscreenElement);
-  showHUD();
 }
 
 function beginDrag(x, y) {
@@ -1286,6 +1299,7 @@ window.addEventListener('fullscreenchange', () => {
 });
 
 document.addEventListener('visibilitychange', handleVisibilityChange);
+document.addEventListener('click', () => restoreFullscreenIfNeeded());
 window.addEventListener('mousemove', resetAutoPause, { passive: true });
 window.addEventListener('keydown', resetAutoPause);
 window.addEventListener('touchstart', resetAutoPause, { passive: true });
@@ -1395,11 +1409,14 @@ window.addEventListener('keydown', async e => {
       closeOverlay('help');
       closeOverlay('zoom');
       if (document.fullscreenElement) {
-        document.exitFullscreen?.();
+        setFullscreen(false);
+      } else {
+        showHUD();
       }
-      showHUD();
       break;
   }
+
+  restoreFullscreenIfNeeded();
 });
 
 cameraSelect.addEventListener('change', async () => {
