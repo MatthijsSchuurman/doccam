@@ -562,6 +562,7 @@ let touchMode = null;
 let touchStartDistance = 0;
 let touchStartZoom = 1;
 let activePresetSlot = null;
+let mouseX = null, mouseY = null;
 let loadingPresetSlot = null;
 let rotationResetTimer = null;
 let hiddenTimer = null;
@@ -1007,16 +1008,30 @@ function clampPan() {
   panY = Math.min(overflowY, Math.max(-overflowY, panY));
 }
 
-function setZoom(nextZoom) {
+function setZoomAt(nextZoom, centerX, centerY) {
+  const oldZoom = zoom;
   zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
+  
+  const dx = centerX - window.innerWidth / 2;
+  const dy = centerY - window.innerHeight / 2;
+  panX = panX * zoom / oldZoom + dx * (oldZoom - zoom) / oldZoom;
+  panY = panY * zoom / oldZoom + dy * (oldZoom - zoom) / oldZoom;
+  
   if (zoom === MIN_ZOOM) {
     panX = 0;
     panY = 0;
   }
+  
   clampPan();
   applyTransform();
   updatePresetState();
   showHUD();
+}
+
+function setZoom(nextZoom) {
+  const cx = mouseX ?? window.innerWidth / 2;
+  const cy = mouseY ?? window.innerHeight / 2;
+  setZoomAt(nextZoom, cx, cy);
 }
 
 function changeZoom(delta) {
@@ -1244,10 +1259,13 @@ async function savePreset(slot) {
 
 window.addEventListener('wheel', e => {
   e.preventDefault();
-  changeZoom(-e.deltaY * WHEEL_SENSITIVITY);
+  const nextZoom = zoom - e.deltaY * WHEEL_SENSITIVITY;
+  setZoomAt(nextZoom, e.clientX, e.clientY);
 }, { passive: false });
 
 window.addEventListener('mousemove', e => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
   showHUD();
   if (!dragging) return;
   updateDrag(e.clientX, e.clientY);
@@ -1286,11 +1304,6 @@ video.addEventListener('touchstart', e => {
     endDrag();
     touchStartDistance = getTouchDistance(e.touches);
     touchStartZoom = zoom;
-    const center = getTouchCenter(e.touches);
-    dragStartX = center.x;
-    dragStartY = center.y;
-    panStartX = panX;
-    panStartY = panY;
   }
 }, { passive: false });
 
@@ -1300,22 +1313,11 @@ video.addEventListener('touchmove', e => {
   if (touchMode === 'pan' && e.touches.length === 1) {
     updateDrag(e.touches[0].clientX, e.touches[0].clientY);
   } else if (touchMode === 'pinch' && e.touches.length === 2) {
-    const newDistance = getTouchDistance(e.touches);
-    zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, touchStartZoom * (newDistance / touchStartDistance)));
-
-    const center = getTouchCenter(e.touches);
-    panX = panStartX + (center.x - dragStartX) * zoom;
-    panY = panStartY + (center.y - dragStartY) * zoom;
-
-    if (zoom === MIN_ZOOM) {
-      panX = 0;
-      panY = 0;
-    }
-
-    clampPan();
-    applyTransform();
-    updatePresetState();
-  }
+  const newDistance = getTouchDistance(e.touches);
+  const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, touchStartZoom * (newDistance / touchStartDistance)));
+  const center = getTouchCenter(e.touches);
+  setZoomAt(newZoom, center.x, center.y);
+}
 }, { passive: false });
 
 video.addEventListener('touchend', e => {
