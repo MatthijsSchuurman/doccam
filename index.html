@@ -563,6 +563,9 @@ let touchStartZoom = 1;
 let activePresetSlot = null;
 let loadingPresetSlot = null;
 let rotationResetTimer = null;
+let hiddenTimer = null;
+let streamStopped = false;
+const STOP_DELAY_MS = 3000;
 
 const MIN_ZOOM = 1.0;
 const MAX_ZOOM = 8.0;
@@ -774,6 +777,49 @@ function setPaused(shouldPause) {
   showHUD();
 }
 
+function handleVisibilityChange() {
+  if (document.hidden) {
+    if (!paused) {
+      video.pause();
+      pauseBadge.style.display = 'block';
+    }
+    
+    hiddenTimer = setTimeout(() => {
+      if (currentStream) {
+        currentStream.getTracks().forEach(t => t.stop());
+        currentStream = null;
+        streamStopped = true;
+      }
+    }, STOP_DELAY_MS);
+  } else {
+    clearTimeout(hiddenTimer);
+    hiddenTimer = null;
+    
+    if (streamStopped && currentStream === null) {
+      startCamera(currentDeviceId);
+      streamStopped = false;
+    } else if (!paused) {
+      video.play();
+      pauseBadge.style.display = 'none';
+    }
+  }
+}
+
+function resetAutoPause() {
+  clearTimeout(hiddenTimer);
+  hiddenTimer = null;
+  
+  if (!paused) {
+    video.play();
+    pauseBadge.style.display = 'none';
+  }
+  
+  if (streamStopped) {
+    startCamera(currentDeviceId);
+    streamStopped = false;
+  }
+}
+
 function applyVisualState(state) {
   const next = normalizeState(state);
 
@@ -898,10 +944,10 @@ async function startCamera(deviceId) {
   video.srcObject = stream;
   await video.play();
 
-  paused = false;
-  btnPause.classList.remove('active');
-  btnPause.textContent = 'Pause';
-  pauseBadge.style.display = 'none';
+  streamStopped = false;
+  if (paused) {
+    video.pause();
+  }
 
   await loadCameras({ requestPermission: true });
   if (currentDeviceId) cameraSelect.value = currentDeviceId;
@@ -1219,6 +1265,12 @@ window.addEventListener('touchend', () => showHUD(), { passive: true });
 window.addEventListener('fullscreenchange', () => {
   btnFullscreen.classList.toggle('active', !!document.fullscreenElement);
 });
+
+document.addEventListener('visibilitychange', handleVisibilityChange);
+window.addEventListener('mousemove', resetAutoPause, { passive: true });
+window.addEventListener('keydown', resetAutoPause);
+window.addEventListener('touchstart', resetAutoPause, { passive: true });
+window.addEventListener('touchmove', resetAutoPause, { passive: true });
 
 video.addEventListener('error', () => {
   showMessage('Video stream error. Please try a different camera or refresh.');
