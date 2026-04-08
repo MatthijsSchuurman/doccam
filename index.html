@@ -439,6 +439,9 @@
   #message-banner.warning { background: var(--color-warning); }
   #message-banner.info { background: var(--color-info); }
 
+  #video.grayscale { filter: grayscale(1); }
+  #video.inverted { filter: grayscale(1) invert(1); }
+
   :focus-visible {
     outline: 3px solid var(--color-btn-active);
     outline-offset: 2px;
@@ -484,6 +487,7 @@
             <tr><td class="help-key"><kbd>H</kbd></td><td class="help-desc">horizontal flip</td></tr>
             <tr><td class="help-key"><kbd>V</kbd></td><td class="help-desc">vertical flip</td></tr>
             <tr><td class="help-key"><kbd>R</kbd></td><td class="help-desc">rotate 90°</td></tr>
+            <tr><td class="help-key"><kbd>M</kbd></td><td class="help-desc">cycle color mode</td></tr>
             <tr><td class="help-key"><kbd>0</kbd></td><td class="help-desc">reset all settings</td></tr>
 
             <tr class="help-group-row"><td colspan="2">Presets</td></tr>
@@ -513,6 +517,7 @@
     </div>
 
     <div class="bottom-actions" role="group" aria-label="Image adjustments">
+      <button id="btn-mode" class="hud-btn" aria-pressed="false" aria-label="Mode: normal">Mode: Normal</button>
       <button id="btn-flip-h" class="hud-btn" aria-pressed="false" aria-label="Horizontal flip, currently normal">Horizontal: normal</button>
       <button id="btn-flip-v" class="hud-btn" aria-pressed="false" aria-label="Vertical flip, currently normal">Vertical: normal</button>
       <button id="btn-rotate" class="hud-btn" aria-pressed="false" aria-label="Rotate image 90 degrees">Rotate: 0°</button>
@@ -540,6 +545,7 @@ const helpToggle = document.getElementById('help-toggle');
 const pauseBadge = document.getElementById('pause-badge');
 const errorBanner = document.getElementById('message-banner');
 const btnPause = document.getElementById('btn-pause');
+const btnMode = document.getElementById('btn-mode');
 const btnFlipH = document.getElementById('btn-flip-h');
 const btnFlipV = document.getElementById('btn-flip-v');
 const btnRotate = document.getElementById('btn-rotate');
@@ -550,6 +556,7 @@ const presetBar = document.getElementById('preset-bar');
 let zoom = 1.0;
 let panX = 0, panY = 0;
 let paused = false;
+let viewMode = 'normal';
 let fullscreen = false;
 let flipH = false;
 let flipV = false;
@@ -574,6 +581,13 @@ const MIN_ZOOM = 1.0;
 const MAX_ZOOM = 8.0;
 const STORAGE_CAMERA_KEY = 'doccam.selectedCameraId';
 const PRESET_SLOTS = [1,2,3,4,5,6,7,8,9];
+
+const VIEW_MODES = ['normal', 'grayscale', 'inverted'];
+const VIEW_MODE_LABELS = {
+  'normal': 'Normal',
+  'grayscale': 'Grayscale',
+  'inverted': 'Inverted',
+};
 
 const PAN_STEP = 30;
 const WHEEL_SENSITIVITY = 0.003;
@@ -665,6 +679,7 @@ function getDefaultPreset() {
     rotation: 0,
     paused: false,
     fullscreen: true,
+    viewMode: 'normal',
     cameraId: null,
   };
 }
@@ -707,6 +722,7 @@ function normalizeState(state) {
     rotation: Number(state.rotation ?? 0) % 360,
     paused: !!state.paused,
     fullscreen: !!state.fullscreen,
+    viewMode: state.viewMode || 'normal',
     cameraId: state.cameraId || null,
   };
 }
@@ -722,7 +738,8 @@ function statesMatch(a, b) {
     x.flipV === y.flipV &&
     (x.rotation % 360) === (y.rotation % 360) &&
     x.paused === y.paused &&
-    x.fullscreen === y.fullscreen
+    x.fullscreen === y.fullscreen &&
+    x.viewMode === y.viewMode
   );
 }
 
@@ -736,7 +753,8 @@ function presetsMatch(a, b) {
     x.flipH === y.flipH &&
     x.flipV === y.flipV &&
     (x.rotation % 360) === (y.rotation % 360) &&
-    x.paused === y.paused
+    x.paused === y.paused &&
+    x.viewMode === y.viewMode
   );
 }
 
@@ -750,6 +768,7 @@ function getState() {
     rotation: rotation % 360,
     paused,
     fullscreen,
+    viewMode,
     cameraId: currentDeviceId || cameraSelect.value || null,
   };
 }
@@ -851,8 +870,10 @@ function applyVisualState(state) {
   flipH = next.flipH;
   flipV = next.flipV;
   rotation = next.rotation;
+  viewMode = next.viewMode || 'normal';
   clampPan();
   applyTransform();
+  applyViewMode();
 
   setPaused(next.paused);
 }
@@ -971,6 +992,9 @@ async function startCamera(deviceId) {
 }
 
 function updateButtonLabels() {
+  btnMode.textContent = `Mode: ${VIEW_MODE_LABELS[viewMode]}`;
+  btnMode.setAttribute('aria-label', `Mode: ${VIEW_MODE_LABELS[viewMode].toLowerCase()}`);
+  btnMode.setAttribute('aria-pressed', viewMode !== 'normal');
   btnFlipH.textContent = `Horizontal: ${flipH ? 'flipped' : 'normal'}`;
   btnFlipV.textContent = `Vertical: ${flipV ? 'flipped' : 'normal'}`;
   btnRotate.textContent = `Rotate: ${rotation === 360 ? 360 : rotation}°`;
@@ -1025,17 +1049,17 @@ function clampPan() {
 function setZoomAt(nextZoom, centerX, centerY) {
   const oldZoom = zoom;
   zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
-  
+
   const dx = centerX - window.innerWidth / 2;
   const dy = centerY - window.innerHeight / 2;
   panX = panX * zoom / oldZoom + dx * (oldZoom - zoom) / oldZoom;
   panY = panY * zoom / oldZoom + dy * (oldZoom - zoom) / oldZoom;
-  
+
   if (zoom === MIN_ZOOM) {
     panX = 0;
     panY = 0;
   }
-  
+
   clampPan();
   applyTransform();
   updatePresetState();
@@ -1062,6 +1086,7 @@ async function resetView() {
     rotation: 0,
     paused: false,
     fullscreen: false,
+    viewMode: 'normal',
     cameraId: currentDeviceId,
   });
 }
@@ -1130,6 +1155,19 @@ function toggleOverlay(kind) {
 
 function togglePause() {
   setPaused(!paused);
+}
+
+function cycleMode() {
+  const idx = VIEW_MODES.indexOf(viewMode);
+  viewMode = VIEW_MODES[(idx + 1) % VIEW_MODES.length];
+  applyViewMode();
+  updateButtonLabels();
+  updatePresetState();
+  showHUD();
+}
+
+function applyViewMode() {
+  video.className = viewMode === 'normal' ? '' : viewMode;
 }
 
 function toggleFlipH() {
@@ -1393,6 +1431,8 @@ window.addEventListener('keydown', async e => {
     case 'V': toggleFlipV(); break;
     case 'r':
     case 'R': cycleRotation(); break;
+    case 'm':
+    case 'M': cycleMode(); break;
     case 'f':
     case 'F': toggleFullscreen(); break;
     case 'ArrowUp': panY += PAN_STEP * zoom; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
@@ -1425,6 +1465,7 @@ cameraSelect.addEventListener('change', async () => {
 });
 
 btnPause.addEventListener('click', togglePause);
+btnMode.addEventListener('click', cycleMode);
 btnFlipH.addEventListener('click', toggleFlipH);
 btnFlipV.addEventListener('click', toggleFlipV);
 btnRotate.addEventListener('click', cycleRotation);
