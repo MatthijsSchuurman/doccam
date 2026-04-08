@@ -32,6 +32,10 @@ Simple webcam based document viewer with minimal UI to have a frictionless digit
 | `1-9` | load preset |
 | `Ctrl+1-9` | save preset |
 | `Delete` | delete active preset |
+| `Ctrl+C` | copy frame to clipboard |
+| `Ctrl+S` | save frame as PNG |
+| `?` | toggle help panel |
+| `Escape` | close overlays / exit fullscreen |
 
 ---
 
@@ -50,3 +54,14 @@ Simple webcam based document viewer with minimal UI to have a frictionless digit
 ```
 
 Then open http://127.0.0.1:8000 in your browser.
+
+## Known Limitations
+
+- Tested only with Chrome; other browsers may have compatibility issues
+- Requires camera permissions to be granted by the user
+- Clipboard copy (`Ctrl+C`) may not work in all browsers due to security restrictions
+- Mobile devices aren't supported
+
+## License
+
+[MIT License](LICENSE)
