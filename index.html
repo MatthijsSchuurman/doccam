@@ -281,10 +281,12 @@
   }
 
   .help-panel {
-    position: absolute;
-    top: 36px;
-    right: 0;
-    width: min(500px, calc(100vw - var(--space-xl)));
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: 90%;
+    max-height: 90vh;
+    min-width: 800px;
     padding: var(--space-lg);
     border-radius: var(--radius-lg);
     border: 2px solid var(--color-btn-border);
@@ -293,6 +295,8 @@
     font-size: 22px;
     line-height: 1.45;
     display: none;
+    overflow-y: auto;
+    z-index: 100;
   }
 
   #help-wrap.open .help-panel,
@@ -355,6 +359,19 @@
   .help-panel kbd.up {
     margin-bottom: var(--space-xs);
     margin-left: 43px;
+  }
+
+  .help-columns {
+    display: flex;
+    gap: var(--space-xl);
+  }
+
+  .help-column {
+    flex: 1;
+  }
+
+  .help-column .help-group-row:first-child td {
+    padding-top: 0;
   }
 
   .zoom-trigger {
@@ -578,33 +595,42 @@
         <button id="help-toggle" class="help-toggle" aria-label="Help, opens keyboard shortcuts" aria-expanded="false">?</button>
         <div class="help-panel" role="dialog" aria-labelledby="help-title">
           <div class="help-title" id="help-title">Help</div>
-          <table class="help-table">
-            <tr class="help-group-row"><td colspan="2">Zoom</td></tr>
-            <tr><td class="help-key">Mouse</td><td class="help-desc">zoom, pan</td></tr>
-            <tr><td class="help-key">Touch</td><td class="help-desc">zoom &amp; pan</td></tr>
-            <tr><td class="help-key"><kbd>+</kbd> <kbd>-</kbd></td><td class="help-desc">zoom in / out</td></tr>
-            <tr><td class="help-key"><kbd class="up">↑</kbd><br><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></td><td class="help-desc">pan</td></tr>
-
-            <tr class="help-group-row"><td colspan="2">Settings</td></tr>
-            <tr><td class="help-key"><kbd>F</kbd></td><td class="help-desc">toggle fullscreen</td></tr>
-            <tr><td class="help-key"><kbd>P</kbd></td><td class="help-desc">pause / resume</td></tr>
-            <tr><td class="help-key"><kbd>H</kbd></td><td class="help-desc">horizontal flip</td></tr>
-            <tr><td class="help-key"><kbd>V</kbd></td><td class="help-desc">vertical flip</td></tr>
-            <tr><td class="help-key"><kbd>R</kbd></td><td class="help-desc">rotate 90°</td></tr>
-            <tr><td class="help-key"><kbd>M</kbd></td><td class="help-desc">cycle color mode</td></tr>
-            <tr><td class="help-key"><kbd>B</kbd></td><td class="help-desc">cycle brightness</td></tr>
-            <tr><td class="help-key"><kbd>C</kbd></td><td class="help-desc">cycle contrast</td></tr>
-            <tr><td class="help-key"><kbd>0</kbd></td><td class="help-desc">reset all settings</td></tr>
-
-            <tr class="help-group-row"><td colspan="2">Presets</td></tr>
-            <tr><td class="help-key"><kbd>1-9</kbd></td><td class="help-desc">load preset</td></tr>
-            <tr><td class="help-key"><kbd>Ctrl+1-9</kbd></td><td class="help-desc">save preset</td></tr>
-            <tr><td class="help-key"><kbd>Delete</kbd></td><td class="help-desc">delete active preset</td></tr>
-
-            <tr class="help-group-row"><td colspan="2">Capture</td></tr>
-            <tr><td class="help-key"><kbd>Ctrl+C</kbd></td><td class="help-desc">copy frame to clipboard</td></tr>
-            <tr><td class="help-key"><kbd>Ctrl+S</kbd></td><td class="help-desc">save frame as PNG</td></tr>
-          </table>
+          <div class="help-columns">
+            <div class="help-column">
+              <table class="help-table">
+                <tr class="help-group-row"><td colspan="2">Zoom</td></tr>
+                <tr><td class="help-key">Mouse</td><td class="help-desc">zoom, pan</td></tr>
+                <tr><td class="help-key">Touch</td><td class="help-desc">zoom &amp; pan</td></tr>
+                <tr><td class="help-key"><kbd>+</kbd> <kbd>-</kbd></td><td class="help-desc">zoom in / out</td></tr>
+                <tr><td class="help-key"><kbd class="up">↑</kbd><br><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></td><td class="help-desc">pan</td></tr>
+              </table>
+            </div>
+            <div class="help-column">
+              <table class="help-table">
+                <tr class="help-group-row"><td colspan="2">Settings</td></tr>
+                <tr><td class="help-key"><kbd>F</kbd></td><td class="help-desc">toggle fullscreen</td></tr>
+                <tr><td class="help-key"><kbd>P</kbd></td><td class="help-desc">pause / resume</td></tr>
+                <tr><td class="help-key"><kbd>H</kbd></td><td class="help-desc">horizontal flip</td></tr>
+                <tr><td class="help-key"><kbd>V</kbd></td><td class="help-desc">vertical flip</td></tr>
+                <tr><td class="help-key"><kbd>R</kbd></td><td class="help-desc">rotate 90°</td></tr>
+                <tr><td class="help-key"><kbd>M</kbd></td><td class="help-desc">cycle color mode</td></tr>
+                <tr><td class="help-key"><kbd>B</kbd></td><td class="help-desc">cycle brightness</td></tr>
+                <tr><td class="help-key"><kbd>C</kbd></td><td class="help-desc">cycle contrast</td></tr>
+                <tr><td class="help-key"><kbd>0</kbd></td><td class="help-desc">reset all settings</td></tr>
+              </table>
+            </div>
+            <div class="help-column">
+              <table class="help-table">
+                <tr class="help-group-row"><td colspan="2">Presets</td></tr>
+                <tr><td class="help-key"><kbd>1-9</kbd></td><td class="help-desc">load preset</td></tr>
+                <tr><td class="help-key"><kbd>Ctrl+1-9</kbd></td><td class="help-desc">save preset</td></tr>
+                <tr><td class="help-key"><kbd>Delete</kbd></td><td class="help-desc">delete active preset</td></tr>
+                <tr class="help-group-row"><td colspan="2">Capture</td></tr>
+                <tr><td class="help-key"><kbd>Ctrl+C</kbd></td><td class="help-desc">copy frame to clipboard</td></tr>
+                <tr><td class="help-key"><kbd>Ctrl+S</kbd></td><td class="help-desc">save frame as PNG</td></tr>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>
