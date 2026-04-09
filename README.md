@@ -8,7 +8,7 @@ Simple webcam based document viewer with minimal UI to have a frictionless digit
 - **Zoom & Pan** — Mouse wheel or pinch to zoom, drag to pan
 - **Flip & Rotate** — Horizontal/vertical flip, 90° rotation increments
 - **Color Modes** — Normal, grayscale, inverted (press M)
-- **Brightness & Contrast** — Adjustable presets (press B/C)
+- **Brightness & Contrast** — Adjustable presets (press B/C or scoll over button)
 - **Presets** — Save/load view states (keys 1-9, Ctrl+1-9 to save)
 - **Fullscreen** — Press F to toggle
 - **Pause** — Freeze the feed anytime

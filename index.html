@@ -676,6 +676,8 @@ const zoomIndicator = document.getElementById('zoom-indicator');
 const zoomFill = document.getElementById('zoom-fill');
 const zoomDisplay = document.getElementById('zoom-display');
 const zoomWrap = document.getElementById('zoom-wrap');
+const brightnessWrap = document.getElementById('brightness-wrap');
+const contrastWrap = document.getElementById('contrast-wrap');
 const cameraSelect = document.getElementById('camera-select');
 const helpWrap = document.getElementById('help-wrap');
 const helpToggle = document.getElementById('help-toggle');
@@ -741,6 +743,7 @@ const VIEW_MODE_LABELS = {
 
 const PAN_STEP = 30;
 const WHEEL_SENSITIVITY = 0.003;
+const BRIGHTNESS_WHEEL_SENSITIVITY = -0.01;
 const ROTATION_RESET_DELAY_MS = 90;
 const HUD_TIMEOUT_MS = 2000;
 const FLOAT_EPSILON = 0.001;
@@ -1392,6 +1395,22 @@ function updateBrightnessContrastIndicators() {
   });
 }
 
+function adjustBrightness(delta) {
+  brightness = Math.max(0, Math.min(100, brightness + delta));
+  applyFilters();
+  updateBrightnessContrastIndicators();
+  updatePresetState();
+  showHUD();
+}
+
+function adjustContrast(delta) {
+  contrast = Math.max(0, Math.min(100, contrast + delta));
+  applyFilters();
+  updateBrightnessContrastIndicators();
+  updatePresetState();
+  showHUD();
+}
+
 function toggleFlipH() {
   flipH = !flipH;
   applyTransform();
@@ -1534,6 +1553,20 @@ window.addEventListener('wheel', e => {
   e.preventDefault();
   const nextZoom = zoom - e.deltaY * WHEEL_SENSITIVITY;
   setZoomAt(nextZoom, e.clientX, e.clientY);
+}, { passive: false });
+
+brightnessWrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  e.stopPropagation();
+  const delta = Math.round(e.deltaY * BRIGHTNESS_WHEEL_SENSITIVITY);
+  adjustBrightness(delta);
+}, { passive: false });
+
+contrastWrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  e.stopPropagation();
+  const delta = Math.round(e.deltaY * BRIGHTNESS_WHEEL_SENSITIVITY);
+  adjustContrast(delta);
 }, { passive: false });
 
 window.addEventListener('mousemove', e => {
