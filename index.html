@@ -18,6 +18,11 @@
     --pause-badge-top: 20px;
     --pause-badge-right: 90px;
 
+    --indicator-height: 10px;
+    --indicator-gap: 10px;
+    --settings-btn-width: 70px;
+    --border-radius: 4px;
+
     /* Border radius */
     --radius-sm: 4px;
     --radius-md: 8px;
@@ -126,6 +131,13 @@
     bottom: 0;
     gap: var(--space-md);
     background: linear-gradient(to top, var(--color-panel-bg) 0%, transparent 100%);
+    pointer-events: all;
+  }
+
+  .settings-group {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-md);
     pointer-events: all;
   }
 
@@ -304,15 +316,15 @@
   }
 
   .zoom-trigger {
-    min-width: 116px;
-    text-align: left;
+    min-width: var(--settings-btn-width);
+    text-align: center;
   }
 
   .zoom-panel {
     position: absolute;
-    bottom: 82px;
+    bottom: 52px;
     left: 0;
-    min-width: 116px;
+    min-width: var(--settings-btn-width);
     padding: var(--space-md);
     border-radius: var(--radius-lg);
     border: 2px solid var(--color-btn-border);
@@ -340,22 +352,118 @@
   }
 
   .zoom-option.active {
-    background: var(--color-btn-hover);
+    background: var(--color-btn-active);
+    border-color: var(--color-btn-active-border);
   }
 
   #zoom-indicator {
-    width: 100%;
-    height: 10px;
+    width: var(--settings-btn-width);
+    height: var(--indicator-height);
     background: rgba(255,255,255,0.1);
     border-radius: var(--radius-sm);
-    margin-bottom: 10px;
+    margin-bottom: var(--indicator-gap);
   }
 
-  #zoom-fill {
+  #brightness-indicator,
+  #contrast-indicator {
+    width: var(--settings-btn-width);
+    height: var(--indicator-height);
+    background: rgba(255,255,255,0.1);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--indicator-gap);
+  }
+
+  #zoom-fill,
+  #brightness-fill,
+  #contrast-fill {
     height: 100%;
     border-radius: var(--radius-sm);
     background: rgba(255,255,255,0.6);
     transition: width var(--transition-fast);
+  }
+
+  #brightness-wrap,
+  #contrast-wrap {
+    position: relative;
+    pointer-events: all;
+  }
+
+  #brightness-display,
+  #contrast-display {
+    background: var(--color-btn-bg);
+    border: 2px solid var(--color-btn-border);
+    color: var(--color-text);
+    font-family: monospace;
+    font-size: 24px;
+    padding: 10px 18px;
+    border-radius: var(--radius-md);
+    outline: none;
+    cursor: pointer;
+    min-width: var(--settings-btn-width);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  #brightness-display svg,
+  #contrast-display svg {
+    width: 24px;
+    height: 24px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+  }
+
+  #brightness-display .value,
+  #contrast-display .value {
+    font-size: 20px;
+  }
+
+  .brightness-panel,
+  .contrast-panel {
+    position: absolute;
+    bottom: 52px;
+    left: 0;
+    min-width: var(--settings-btn-width);
+    padding: var(--space-md);
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--color-btn-border);
+    background: var(--color-overlay);
+    display: none;
+  }
+
+  #brightness-wrap:hover .brightness-panel,
+  #brightness-wrap:focus-within .brightness-panel,
+  #contrast-wrap:hover .contrast-panel,
+  #contrast-wrap:focus-within .contrast-panel {
+    display: block;
+  }
+
+  .brightness-option,
+  .contrast-option {
+    width: 100%;
+    text-align: left;
+    padding: 10px 14px;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text);
+    font-family: monospace;
+    font-size: 24px;
+    cursor: pointer;
+  }
+
+  .brightness-option:hover,
+  .contrast-option:hover {
+    background: var(--color-btn-hover);
+  }
+
+  .brightness-option.active,
+  .contrast-option.active {
+    background: var(--color-btn-active);
+    border-color: var(--color-btn-active-border);
   }
 
   #preset-bar {
@@ -435,6 +543,8 @@
   @media (prefers-reduced-motion: reduce) {
     #video,
     #zoom-fill,
+    #brightness-fill,
+    #contrast-fill,
     #hud {
       transition: none !important;
     }
@@ -472,6 +582,8 @@
             <tr><td class="help-key"><kbd>V</kbd></td><td class="help-desc">vertical flip</td></tr>
             <tr><td class="help-key"><kbd>R</kbd></td><td class="help-desc">rotate 90°</td></tr>
             <tr><td class="help-key"><kbd>M</kbd></td><td class="help-desc">cycle color mode</td></tr>
+            <tr><td class="help-key"><kbd>B</kbd></td><td class="help-desc">cycle brightness</td></tr>
+            <tr><td class="help-key"><kbd>C</kbd></td><td class="help-desc">cycle contrast</td></tr>
             <tr><td class="help-key"><kbd>0</kbd></td><td class="help-desc">reset all settings</td></tr>
 
             <tr class="help-group-row"><td colspan="2">Presets</td></tr>
@@ -489,15 +601,44 @@
   </div>
 
   <div class="bottom-bar">
-    <div id="zoom-wrap">
-      <div id="zoom-indicator" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Zoom level"><div id="zoom-fill"></div></div>
-      <button id="zoom-display" class="zoom-trigger" aria-haspopup="true" aria-expanded="false" aria-label="Zoom level, click to change">1.0×</button>
-      <div class="zoom-panel" role="menu" aria-label="Zoom options">
-        <div class="zoom-title">Zoom</div>
-        <button class="zoom-option" role="menuitem" data-zoom="8">8×</button>
-        <button class="zoom-option" role="menuitem" data-zoom="4">4×</button>
-        <button class="zoom-option" role="menuitem" data-zoom="2">2×</button>
-        <button class="zoom-option" role="menuitem" data-zoom="1">1×</button>
+    <div class="settings-group">
+      <div id="zoom-wrap">
+        <div id="zoom-indicator" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Zoom level"><div id="zoom-fill"></div></div>
+        <button id="zoom-display" class="zoom-trigger" aria-haspopup="true" aria-expanded="false" aria-label="Zoom level, click to change">1.0×</button>
+        <div class="zoom-panel" role="menu" aria-label="Zoom options">
+          <button class="zoom-option" role="menuitem" data-zoom="8">8×</button>
+          <button class="zoom-option" role="menuitem" data-zoom="4">4×</button>
+          <button class="zoom-option" role="menuitem" data-zoom="2">2×</button>
+          <button class="zoom-option" role="menuitem" data-zoom="1">1×</button>
+        </div>
+      </div>
+
+      <div id="contrast-wrap">
+        <div id="contrast-indicator" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" aria-label="Contrast level"><div id="contrast-fill"></div></div>
+        <button id="contrast-display" aria-label="Contrast level, click to change">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 0 0 20z"/></svg>
+          <span class="value">50%</span>
+        </button>
+        <div class="contrast-panel" role="menu" aria-label="Contrast options">
+          <button class="contrast-option" role="menuitem" data-contrast="80">80%</button>
+          <button class="contrast-option" role="menuitem" data-contrast="65">65%</button>
+          <button class="contrast-option" role="menuitem" data-contrast="50">50%</button>
+          <button class="contrast-option" role="menuitem" data-contrast="35">35%</button>
+        </div>
+      </div>
+
+      <div id="brightness-wrap">
+        <div id="brightness-indicator" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" aria-label="Brightness level"><div id="brightness-fill"></div></div>
+        <button id="brightness-display" aria-label="Brightness level, click to change">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          <span class="value">50%</span>
+        </button>
+        <div class="brightness-panel" role="menu" aria-label="Brightness options">
+          <button class="brightness-option" role="menuitem" data-brightness="80">80%</button>
+          <button class="brightness-option" role="menuitem" data-brightness="65">65%</button>
+          <button class="brightness-option" role="menuitem" data-brightness="50">50%</button>
+          <button class="brightness-option" role="menuitem" data-brightness="35">35%</button>
+        </div>
       </div>
     </div>
 
@@ -536,8 +677,18 @@ const btnRotate = document.getElementById('btn-rotate');
 const btnFullscreen = document.getElementById('btn-fullscreen');
 const zoomOptions = Array.from(document.querySelectorAll('.zoom-option'));
 const presetBar = document.getElementById('preset-bar');
+const brightnessIndicator = document.getElementById('brightness-indicator');
+const brightnessFill = document.getElementById('brightness-fill');
+const brightnessDisplay = document.getElementById('brightness-display');
+const brightnessOptions = Array.from(document.querySelectorAll('.brightness-option'));
+const contrastIndicator = document.getElementById('contrast-indicator');
+const contrastFill = document.getElementById('contrast-fill');
+const contrastDisplay = document.getElementById('contrast-display');
+const contrastOptions = Array.from(document.querySelectorAll('.contrast-option'));
 
 let zoom = 1.0;
+let brightness = 50;
+let contrast = 50;
 let panX = 0, panY = 0;
 let paused = false;
 let viewMode = 'normal';
@@ -565,6 +716,9 @@ const MIN_ZOOM = 1.0;
 const MAX_ZOOM = 8.0;
 const STORAGE_CAMERA_KEY = 'doccam.selectedCameraId';
 const PRESET_SLOTS = [1,2,3,4,5,6,7,8,9];
+
+const BRIGHTNESS_VALUES = [35, 50, 65, 80];
+const CONTRAST_VALUES = [35, 50, 65, 80];
 
 const VIEW_MODES = ['normal', 'grayscale', 'inverted'];
 const VIEW_MODE_LABELS = {
@@ -664,6 +818,8 @@ function getDefaultPreset() {
     paused: false,
     fullscreen: true,
     viewMode: 'normal',
+    brightness: 50,
+    contrast: 50,
     cameraId: null,
   };
 }
@@ -707,6 +863,8 @@ function normalizeState(state) {
     paused: !!state.paused,
     fullscreen: !!state.fullscreen,
     viewMode: state.viewMode || 'normal',
+    brightness: Number(state.brightness ?? 50),
+    contrast: Number(state.contrast ?? 50),
     cameraId: state.cameraId || null,
   };
 }
@@ -723,7 +881,9 @@ function statesMatch(a, b) {
     (x.rotation % 360) === (y.rotation % 360) &&
     x.paused === y.paused &&
     x.fullscreen === y.fullscreen &&
-    x.viewMode === y.viewMode
+    x.viewMode === y.viewMode &&
+    x.brightness === y.brightness &&
+    x.contrast === y.contrast
   );
 }
 
@@ -738,7 +898,9 @@ function presetsMatch(a, b) {
     x.flipV === y.flipV &&
     (x.rotation % 360) === (y.rotation % 360) &&
     x.paused === y.paused &&
-    x.viewMode === y.viewMode
+    x.viewMode === y.viewMode &&
+    x.brightness === y.brightness &&
+    x.contrast === y.contrast
   );
 }
 
@@ -753,6 +915,8 @@ function getState() {
     paused,
     fullscreen,
     viewMode,
+    brightness,
+    contrast,
     cameraId: currentDeviceId || cameraSelect.value || null,
   };
 }
@@ -855,9 +1019,12 @@ function applyVisualState(state) {
   flipV = next.flipV;
   rotation = next.rotation;
   viewMode = next.viewMode || 'normal';
+  brightness = next.brightness;
+  contrast = next.contrast;
   clampPan();
   applyTransform();
   applyViewMode();
+  updateBrightnessContrastIndicators();
 
   setPaused(next.paused);
 }
@@ -1071,6 +1238,8 @@ async function resetView() {
     paused: false,
     fullscreen: false,
     viewMode: 'normal',
+    brightness: 50,
+    contrast: 50,
     cameraId: currentDeviceId,
   });
 }
@@ -1149,7 +1318,66 @@ function cycleMode() {
 }
 
 function applyViewMode() {
-  video.className = viewMode === 'normal' ? '' : viewMode;
+  applyFilters();
+}
+
+function applyFilters() {
+  const modeFilters = {
+    'normal': '',
+    'grayscale': 'grayscale(1)',
+    'inverted': 'grayscale(1) invert(1)'
+  };
+  
+  const brightnessValue = brightness / 50; // 50% = 1.0
+  const contrastValue = contrast / 50; // 50% = 1.0
+  
+  const filters = [
+    modeFilters[viewMode],
+    `brightness(${brightnessValue})`,
+    `contrast(${contrastValue})`
+  ].filter(f => f).join(' ');
+  
+  video.style.filter = filters;
+  video.className = '';
+}
+
+function cycleBrightness() {
+  const idx = BRIGHTNESS_VALUES.indexOf(brightness);
+  brightness = BRIGHTNESS_VALUES[(idx + 1) % BRIGHTNESS_VALUES.length];
+  applyFilters();
+  updateBrightnessContrastIndicators();
+  updatePresetState();
+  showHUD();
+}
+
+function cycleContrast() {
+  const idx = CONTRAST_VALUES.indexOf(contrast);
+  contrast = CONTRAST_VALUES[(idx + 1) % CONTRAST_VALUES.length];
+  applyFilters();
+  updateBrightnessContrastIndicators();
+  updatePresetState();
+  showHUD();
+}
+
+function updateBrightnessContrastIndicators() {
+  brightnessFill.style.width = brightness + '%';
+  contrastFill.style.width = contrast + '%';
+  
+  brightnessDisplay.querySelector('.value').textContent = brightness + '%';
+  contrastDisplay.querySelector('.value').textContent = contrast + '%';
+  
+  brightnessIndicator.setAttribute('aria-valuenow', brightness);
+  contrastIndicator.setAttribute('aria-valuenow', contrast);
+  
+  brightnessOptions.forEach(option => {
+    const value = Number(option.dataset.brightness);
+    option.classList.toggle('active', value === brightness);
+  });
+  
+  contrastOptions.forEach(option => {
+    const value = Number(option.dataset.contrast);
+    option.classList.toggle('active', value === contrast);
+  });
 }
 
 function toggleFlipH() {
@@ -1415,6 +1643,10 @@ window.addEventListener('keydown', async e => {
     case 'R': cycleRotation(); break;
     case 'm':
     case 'M': cycleMode(); break;
+    case 'b':
+    case 'B': cycleBrightness(); break;
+    case 'c':
+    case 'C': cycleContrast(); break;
     case 'f':
     case 'F': toggleFullscreen(); break;
     case 'ArrowUp': panY += PAN_STEP * zoom; clampPan(); applyTransform(); updatePresetState(); showHUD(); break;
@@ -1471,6 +1703,26 @@ zoomOptions.forEach(option => {
   });
 });
 
+brightnessOptions.forEach(option => {
+  option.addEventListener('click', () => {
+    brightness = Number(option.dataset.brightness);
+    applyFilters();
+    updateBrightnessContrastIndicators();
+    updatePresetState();
+    showHUD();
+  });
+});
+
+contrastOptions.forEach(option => {
+  option.addEventListener('click', () => {
+    contrast = Number(option.dataset.contrast);
+    applyFilters();
+    updateBrightnessContrastIndicators();
+    updatePresetState();
+    showHUD();
+  });
+});
+
 if (navigator.mediaDevices?.addEventListener) {
   navigator.mediaDevices.addEventListener('devicechange', async () => {
     const cams = await loadCameras({ requestPermission: true });
@@ -1494,6 +1746,7 @@ if (navigator.mediaDevices?.addEventListener) {
 
   renderPresetBar();
   showHUD();
+  updateBrightnessContrastIndicators();
   const cams = await loadCameras({ requestPermission: true });
   if (!cams.length) return;
 
