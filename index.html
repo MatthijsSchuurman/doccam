@@ -507,8 +507,6 @@
     color: var(--color-text);
   }
 
-  #zoom-wrap {
-
   #pause-badge {
     position: fixed;
     top: var(--pause-badge-top);
@@ -744,6 +742,7 @@ const VIEW_MODE_LABELS = {
 const PAN_STEP = 30;
 const WHEEL_SENSITIVITY = 0.003;
 const BRIGHTNESS_WHEEL_SENSITIVITY = -0.01;
+const ROTATION_WHEEL_STEP = 5;
 const ROTATION_RESET_DELAY_MS = 90;
 const HUD_TIMEOUT_MS = 2000;
 const FLOAT_EPSILON = 0.001;
@@ -1163,7 +1162,7 @@ function updateButtonLabels() {
   btnMode.setAttribute('aria-pressed', viewMode !== 'normal');
   btnFlipH.textContent = `Horizontal: ${flipH ? 'flipped' : 'normal'}`;
   btnFlipV.textContent = `Vertical: ${flipV ? 'flipped' : 'normal'}`;
-  btnRotate.textContent = `Rotate: ${rotation === 360 ? 360 : rotation}°`;
+  btnRotate.textContent = `Rotate: ${rotation === 360 ? 360 : Math.round(((rotation % 360) + 360) % 360)}°`;
   btnPause.textContent = paused ? 'Resume' : 'Pause';
 
   btnFlipH.classList.toggle('active', flipH);
@@ -1175,7 +1174,7 @@ function updateButtonLabels() {
   btnFlipV.setAttribute('aria-pressed', flipV);
   btnFlipV.setAttribute('aria-label', `Vertical flip, currently ${flipV ? 'flipped' : 'normal'}`);
   btnRotate.setAttribute('aria-pressed', (rotation % 360) !== 0);
-  btnRotate.setAttribute('aria-label', `Rotate ${rotation} degrees`);
+  btnRotate.setAttribute('aria-label', `Rotate ${rotation === 360 ? 360 : Math.round(((rotation % 360) + 360) % 360)} degrees`);
   btnPause.setAttribute('aria-pressed', paused);
   btnPause.setAttribute('aria-label', paused ? 'Resume camera feed' : 'Pause camera feed');
   btnFullscreen.setAttribute('aria-pressed', fullscreen);
@@ -1425,6 +1424,17 @@ function toggleFlipV() {
   showHUD();
 }
 
+function normalizeRotationToZero() {
+  const prev = rotation;
+  rotation = ((rotation % 360) + 360) % 360;
+  if (rotation !== prev) {
+    video.style.transition = 'none';
+    applyTransform();
+    video.offsetHeight;
+    video.style.transition = '';
+  }
+}
+
 function normalizeRotationImmediate() {
   if (rotation === 360) {
     rotation = 0;
@@ -1435,22 +1445,41 @@ function normalizeRotationImmediate() {
   }
 }
 
+function adjustRotation(delta) {
+  rotation = rotation + delta;
+  applyTransform();
+  updateButtonLabels();
+  updatePresetState();
+  showHUD();
+
+  if (rotationResetTimer) clearTimeout(rotationResetTimer);
+  rotationResetTimer = setTimeout(() => {
+    normalizeRotationToZero();
+    rotationResetTimer = null;
+    updateButtonLabels();
+    updatePresetState();
+  }, ROTATION_RESET_DELAY_MS);
+}
+
 function cycleRotation() {
   if (rotationResetTimer) {
     clearTimeout(rotationResetTimer);
     rotationResetTimer = null;
-    normalizeRotationImmediate();
+    normalizeRotationToZero();
   }
 
-  rotation = rotation + 90;
+  const targetRotation = Math.ceil((rotation + 0.001) / 90) * 90;
+  rotation = targetRotation > 360 ? 360 : targetRotation;
   applyTransform();
+  updateButtonLabels();
   updatePresetState();
   showHUD();
 
   if (rotation === 360) {
-    rotationResetTimer = window.setTimeout(() => {
+    rotationResetTimer = setTimeout(() => {
       normalizeRotationImmediate();
       rotationResetTimer = null;
+      updateButtonLabels();
       updatePresetState();
     }, ROTATION_RESET_DELAY_MS);
   }
@@ -1567,6 +1596,13 @@ contrastWrap.addEventListener('wheel', e => {
   e.stopPropagation();
   const delta = Math.round(e.deltaY * BRIGHTNESS_WHEEL_SENSITIVITY);
   adjustContrast(delta);
+}, { passive: false });
+
+btnRotate.addEventListener('wheel', e => {
+  e.preventDefault();
+  e.stopPropagation();
+  const delta = e.deltaY < 0 ? ROTATION_WHEEL_STEP : -ROTATION_WHEEL_STEP;
+  adjustRotation(delta);
 }, { passive: false });
 
 window.addEventListener('mousemove', e => {
